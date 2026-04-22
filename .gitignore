@@ -1,6 +1,5 @@
 node_modules/
 dist/
-.codex/
 .vscode/
 *.log
 npm-debug.log*
