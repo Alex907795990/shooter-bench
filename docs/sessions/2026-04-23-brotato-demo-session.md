@@ -25,10 +25,16 @@
   - 新增 `SpawnMarkerSpriteAdapter`（半透明红圈 + 描边）
   - **形态破例**：EnemyResolver 直接调 `Math.random`（已与用户确认，文件顶部注明），失去纯函数性
   - EnemyPipeline/FramePipeline 增加 arena 参数
+- **修跨域写入与同帧目标去重（审核反馈）**：
+  - WeaponApplier 不再写 EnemyState；命中改为自持 `WeaponState.recentEnemyHits`
+  - FramePipeline 把上一帧 `weapon.recentEnemyHits` 作为参数传给 EnemyResolver，转 `enemyDied`（1 帧延迟，符合 Domain.md §3.3）
+  - WeaponResolver 帧首发 `weaponRecentHitsCleared`，Applier 清空旧批
+  - 命中检测/选目标都将 `recentEnemyHits` 与本帧已选目标一起排除，避免重复打
+  - WeaponResolver 选中目标后补 `claimedTargets.add`，跨武器同帧不再共享同一目标
+  - 移除 `EnemyState.pendingHits` 字段
 - **重构**：World 从 `_Shared/Data` 拆走，每个领域持有自己的 State 切片
   - `Movement/Data/MovementState`, `Enemy/Data/EnemyState`, `Weapon/Data/WeaponState`
   - `_Frame/Data/World` 组合三者 + `arena`
-  - `pendingHits` 归 `EnemyState`（被影响方持有），Weapon 通过 import `Enemy/Data` 写入
   - 各领域 Resolver/Applier/Pipeline 只接自己的切片 + 必需引用，FramePipeline 显式解构传参
 - **重构**：StartupPipeline 不再塞常量
   - 各领域 `Pure/<Domain>InitPure.ts` 提供 `create*InitialStatePure(...)`
@@ -51,7 +57,7 @@
 
 ## 待处理（仅下一小步）
 
-- 用户在浏览器验证：每 1.5s 出现 3 个红圈预警，1s 后变红色敌人；敌人不会刷在玩家身上
+- 用户在浏览器验证：跨域修复后命中/死亡仍正常；预警/刷新仍 OK
 
 ## 风险 / 阻塞
 

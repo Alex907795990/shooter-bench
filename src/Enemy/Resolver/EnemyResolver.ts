@@ -11,17 +11,21 @@ export function resolveEnemyResolver(
   state: Readonly<EnemyState>,
   arena: Readonly<ArenaInfo>,
   playerPos: Readonly<Vec2>,
+  weaponHits: readonly number[],
   tick: TickCommand,
 ): readonly EnemyEvent[] {
   const events: EnemyEvent[] = [];
   const dt = tick.deltaMs;
   const dts = dt / 1000;
 
-  for (const id of state.pendingHits) {
+  const liveSet = new Set(state.list.map((e) => e.id));
+  const dyingSet = new Set<number>();
+  for (const id of weaponHits) {
+    if (!liveSet.has(id) || dyingSet.has(id)) continue;
     events.push({ type: "enemyDied", id });
+    dyingSet.add(id);
   }
 
-  const dyingSet = new Set(state.pendingHits);
   for (const e of state.list) {
     if (dyingSet.has(e.id)) continue;
     const dx = playerPos.x - e.pos.x;
@@ -34,7 +38,7 @@ export function resolveEnemyResolver(
   }
 
   let nextEnemyId = state.nextId;
-  let liveCount = state.list.length - state.pendingHits.length;
+  let liveCount = state.list.length - dyingSet.size;
 
   for (const ps of state.pendingSpawns) {
     const newRemain = ps.remainMs - dt;

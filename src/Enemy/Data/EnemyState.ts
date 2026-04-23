@@ -14,7 +14,6 @@ export interface PendingSpawn {
 
 export interface EnemyState {
   list: EnemyEntity[];
-  pendingHits: number[];
   nextId: number;
   spawnCooldownMs: number;
   pendingSpawns: PendingSpawn[];

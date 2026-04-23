@@ -1,6 +1,6 @@
 import type { Vec2 } from "../../_Shared/Data/Vec2";
 import type { TickCommand } from "../../_Shared/Data/TickCommand";
-import type { WeaponState, WeaponEntity } from "../Data/WeaponState";
+import type { WeaponState } from "../Data/WeaponState";
 import type { EnemyEntity } from "../../Enemy/Data/EnemyState";
 import type { WeaponEvent } from "../Data/WeaponEvents";
 
@@ -14,6 +14,12 @@ export function resolveWeaponResolver(
   const dt = tick.deltaMs;
   const dts = dt / 1000;
 
+  if (state.recentEnemyHits.length > 0) {
+    events.push({ type: "weaponRecentHitsCleared" });
+  }
+
+  const alreadyHit = new Set<number>(state.recentEnemyHits);
+
   for (const p of state.projectiles) {
     const nx = p.pos.x + p.vel.x * dts;
     const ny = p.pos.y + p.vel.y * dts;
@@ -21,6 +27,7 @@ export function resolveWeaponResolver(
 
     let hitId: number | null = null;
     for (const e of enemies) {
+      if (alreadyHit.has(e.id)) continue;
       const ddx = e.pos.x - nx;
       const ddy = e.pos.y - ny;
       if (ddx * ddx + ddy * ddy <= p.hitRadius * p.hitRadius) {
@@ -30,6 +37,7 @@ export function resolveWeaponResolver(
     }
     if (hitId !== null) {
       events.push({ type: "projectileHitEnemy", projectileId: p.id, enemyId: hitId });
+      alreadyHit.add(hitId);
       continue;
     }
     if (newTtl <= 0) {
@@ -39,13 +47,8 @@ export function resolveWeaponResolver(
     events.push({ type: "projectileMoved", id: p.id, pos: { x: nx, y: ny }, ttlMs: newTtl });
   }
 
-  const killedFromHits = new Set<number>();
-  for (const ev of events) {
-    if (ev.type === "projectileHitEnemy") killedFromHits.add(ev.enemyId);
-  }
-
   let nextProjectileId = state.nextProjectileId;
-  const claimedTargets = new Set<number>(killedFromHits);
+  const claimedTargets = new Set<number>(alreadyHit);
 
   for (const w of state.weapons) {
     const weaponPos: Vec2 = {
@@ -58,6 +61,7 @@ export function resolveWeaponResolver(
     if (newCd <= 0) {
       const target = pickNearestEnemy(enemies, weaponPos, w.range, claimedTargets);
       if (target) {
+        claimedTargets.add(target.id);
         const dx = target.pos.x - weaponPos.x;
         const dy = target.pos.y - weaponPos.y;
         const len = Math.hypot(dx, dy) || 1;

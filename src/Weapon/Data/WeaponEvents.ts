@@ -41,10 +41,15 @@ export interface ProjectileHitEnemyEvent {
   enemyId: number;
 }
 
+export interface WeaponRecentHitsClearedEvent {
+  type: "weaponRecentHitsCleared";
+}
+
 export type WeaponEvent =
   | WeaponCooldownTickedEvent
   | WeaponMovedEvent
   | ProjectileSpawnedEvent
   | ProjectileMovedEvent
   | ProjectileExpiredEvent
-  | ProjectileHitEnemyEvent;
+  | ProjectileHitEnemyEvent
+  | WeaponRecentHitsClearedEvent;

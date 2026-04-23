@@ -11,9 +11,10 @@ export function enemyResolveApplyPipeline(
   state: EnemyState,
   arena: Readonly<ArenaInfo>,
   playerPos: Readonly<Vec2>,
+  weaponHits: readonly number[],
   tick: TickCommand,
 ): readonly EnemyEvent[] {
-  const events = resolveEnemyResolver(state, arena, playerPos, tick);
+  const events = resolveEnemyResolver(state, arena, playerPos, weaponHits, tick);
   applyEnemyApplier(state, events);
   return events;
 }

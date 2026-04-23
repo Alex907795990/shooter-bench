@@ -44,5 +44,4 @@ export function applyEnemyApplier(state: EnemyState, events: readonly EnemyEvent
       }
     }
   }
-  state.pendingHits = [];
 }

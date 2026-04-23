@@ -22,5 +22,6 @@ export function createWeaponInitialStatePure(): WeaponState {
     orbitRadius: WEAPON_CONFIG.orbitRadius,
     projectiles: [],
     nextProjectileId: 1,
+    recentEnemyHits: [],
   };
 }

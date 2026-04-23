@@ -14,7 +14,6 @@ export function createEnemyInitialStatePure(
       { id: 3, pos: { x: m, y: arenaHeight - m }, speed: s },
       { id: 4, pos: { x: arenaWidth - m, y: arenaHeight - m }, speed: s },
     ],
-    pendingHits: [],
     nextId: ENEMY_CONFIG.initialIdStart,
     spawnCooldownMs: ENEMY_CONFIG.batchIntervalMs,
     pendingSpawns: [],
