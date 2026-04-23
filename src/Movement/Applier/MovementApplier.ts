@@ -1,13 +1,13 @@
-import type { MovementState } from "../Data/MovementState";
+import type { World } from "../../_Frame/Data/World";
 import type { MovementEvent } from "../Data/MovementEvents";
 
 export function applyMovementApplier(
-  state: MovementState,
+  world: World,
   events: readonly MovementEvent[],
 ): void {
   for (const e of events) {
     if (e.type === "playerMoved") {
-      state.player.pos = e.pos;
+      world.movement.player.pos = e.pos;
     }
   }
 }

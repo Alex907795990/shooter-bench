@@ -1,7 +1,8 @@
-import type { EnemyState } from "../Data/EnemyState";
+import type { World } from "../../_Frame/Data/World";
 import type { EnemyEvent } from "../Data/EnemyEvents";
 
-export function applyEnemyApplier(state: EnemyState, events: readonly EnemyEvent[]): void {
+export function applyEnemyApplier(world: World, events: readonly EnemyEvent[]): void {
+  const state = world.enemy;
   for (const e of events) {
     switch (e.type) {
       case "enemyMoved": {

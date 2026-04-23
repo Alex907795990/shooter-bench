@@ -25,13 +25,14 @@
   - 新增 `SpawnMarkerSpriteAdapter`（半透明红圈 + 描边）
   - **形态破例**：EnemyResolver 直接调 `Math.random`（已与用户确认，文件顶部注明），失去纯函数性
   - EnemyPipeline/FramePipeline 增加 arena 参数
-- **修跨域写入与同帧目标去重（审核反馈）**：
-  - WeaponApplier 不再写 EnemyState；命中改为自持 `WeaponState.recentEnemyHits`
-  - FramePipeline 把上一帧 `weapon.recentEnemyHits` 作为参数传给 EnemyResolver，转 `enemyDied`（1 帧延迟，符合 Domain.md §3.3）
-  - WeaponResolver 帧首发 `weaponRecentHitsCleared`，Applier 清空旧批
-  - 命中检测/选目标都将 `recentEnemyHits` 与本帧已选目标一起排除，避免重复打
-  - WeaponResolver 选中目标后补 `claimedTargets.add`，跨武器同帧不再共享同一目标
-  - 移除 `EnemyState.pendingHits` 字段
+- **Pipeline 形态合规收尾（审核反馈）**：
+  - 领域 Pipeline/Resolver/Applier 签名统一接 `World`，内部解构需要的切片
+  - `FramePipeline` 完全无字段访问/数据构造，只剩 Collector + 顺序调用 + Event 转发
+  - 跨域 1 帧延迟反馈（Weapon → Enemy 命中）改为 Resolver 自己 read-state（`world.weapon.recentEnemyHits`），不再由 FramePipeline 拼装
+- **main.ts 字面量收敛**：
+  - `_Frame/FrameConfig` 新增 `boundsColor / backgroundColor / CAMERA_CONFIG`
+  - `Movement/Data/MovementConfig` 新增 `playerSize / playerColor`
+  - main.ts 不再出现 0x66ccff / 24 / 0.15 / "#111111" 裸字面量
 - **重构**：World 从 `_Shared/Data` 拆走，每个领域持有自己的 State 切片
   - `Movement/Data/MovementState`, `Enemy/Data/EnemyState`, `Weapon/Data/WeaponState`
   - `_Frame/Data/World` 组合三者 + `arena`
@@ -57,7 +58,7 @@
 
 ## 待处理（仅下一小步）
 
-- 用户在浏览器验证：跨域修复后命中/死亡仍正常；预警/刷新仍 OK
+- 用户在浏览器验证：FramePipeline 重构后行为不回退
 
 ## 风险 / 阻塞
 

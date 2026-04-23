@@ -1,18 +1,20 @@
 import type { Vec2 } from "../../_Shared/Data/Vec2";
+import type { World } from "../../_Frame/Data/World";
 import type { TickCommand } from "../../_Shared/Data/TickCommand";
-import type { WeaponState } from "../Data/WeaponState";
 import type { EnemyEntity } from "../../Enemy/Data/EnemyState";
 import type { WeaponEvent } from "../Data/WeaponEvents";
 
 export function resolveWeaponResolver(
-  state: Readonly<WeaponState>,
-  playerPos: Readonly<Vec2>,
-  enemies: readonly EnemyEntity[],
+  world: Readonly<World>,
   tick: TickCommand,
 ): readonly WeaponEvent[] {
   const events: WeaponEvent[] = [];
   const dt = tick.deltaMs;
   const dts = dt / 1000;
+
+  const state = world.weapon;
+  const playerPos = world.movement.player.pos;
+  const enemies = world.enemy.list;
 
   if (state.recentEnemyHits.length > 0) {
     events.push({ type: "weaponRecentHitsCleared" });

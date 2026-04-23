@@ -1,10 +1,11 @@
-import type { WeaponState } from "../Data/WeaponState";
+import type { World } from "../../_Frame/Data/World";
 import type { WeaponEvent } from "../Data/WeaponEvents";
 
 export function applyWeaponApplier(
-  state: WeaponState,
+  world: World,
   events: readonly WeaponEvent[],
 ): void {
+  const state = world.weapon;
   for (const e of events) {
     switch (e.type) {
       case "weaponMoved": {

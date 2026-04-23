@@ -1,22 +1,25 @@
 // 形态破例：本 Resolver 调用 Math.random（已与用户确认）。
 // 影响：Resolver 不再是纯函数，无法回放/单测断言确定输出。
 import type { Vec2 } from "../../_Shared/Data/Vec2";
-import type { EnemyState } from "../Data/EnemyState";
-import type { TickCommand } from "../../_Shared/Data/TickCommand";
+import type { World } from "../../_Frame/Data/World";
 import type { ArenaInfo } from "../../_Frame/Data/World";
+import type { TickCommand } from "../../_Shared/Data/TickCommand";
 import type { EnemyEvent } from "../Data/EnemyEvents";
 import { ENEMY_CONFIG } from "../Data/EnemyConfig";
 
 export function resolveEnemyResolver(
-  state: Readonly<EnemyState>,
-  arena: Readonly<ArenaInfo>,
-  playerPos: Readonly<Vec2>,
-  weaponHits: readonly number[],
+  world: Readonly<World>,
   tick: TickCommand,
 ): readonly EnemyEvent[] {
   const events: EnemyEvent[] = [];
   const dt = tick.deltaMs;
   const dts = dt / 1000;
+
+  const state = world.enemy;
+  const arena = world.arena;
+  const playerPos = world.movement.player.pos;
+  // 跨域 1 帧延迟：上一帧 Weapon 写入的命中 id，本帧 Enemy 读取并转 enemyDied
+  const weaponHits = world.weapon.recentEnemyHits;
 
   const liveSet = new Set(state.list.map((e) => e.id));
   const dyingSet = new Set<number>();

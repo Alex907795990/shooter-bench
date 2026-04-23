@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
 import type { World } from "./_Frame/Data/World";
-import { ARENA_CONFIG, VIEW_CONFIG } from "./_Frame/Data/FrameConfig";
+import { ARENA_CONFIG, VIEW_CONFIG, CAMERA_CONFIG } from "./_Frame/Data/FrameConfig";
+import { MOVEMENT_CONFIG } from "./Movement/Data/MovementConfig";
 import { startupPipeline } from "./_Frame/StartupPipeline";
 import { framePipeline } from "./_Frame/FramePipeline";
 import { bindInputSource } from "./_Shared/Collector/InputCollector";
@@ -27,7 +28,7 @@ class BattleScene extends Phaser.Scene {
     this.state = startupPipeline(ARENA_CONFIG.width, ARENA_CONFIG.height);
     bindInputSource(this.input.keyboard!);
 
-    drawArenaBoundsAdapter(this, ARENA_CONFIG.width, ARENA_CONFIG.height, 0x66ccff);
+    drawArenaBoundsAdapter(this, ARENA_CONFIG.width, ARENA_CONFIG.height, ARENA_CONFIG.boundsColor);
     bindEnemyScene(this);
     bindSpawnMarkerScene(this);
     bindProjectileScene(this);
@@ -35,12 +36,12 @@ class BattleScene extends Phaser.Scene {
     const playerSprite = createPlayerSpriteAdapter(
       this,
       this.state.movement.player.pos,
-      24,
-      0x66ccff,
+      MOVEMENT_CONFIG.playerSize,
+      MOVEMENT_CONFIG.playerColor,
     );
 
     setCameraBoundsAdapter(this, ARENA_CONFIG.width, ARENA_CONFIG.height);
-    startCameraFollowAdapter(this, playerSprite, 0.15, 0.15);
+    startCameraFollowAdapter(this, playerSprite, CAMERA_CONFIG.lerpX, CAMERA_CONFIG.lerpY);
   }
 
   update(_time: number, delta: number): void {
@@ -54,6 +55,6 @@ new Phaser.Game({
   parent: "game",
   width: VIEW_CONFIG.width,
   height: VIEW_CONFIG.height,
-  backgroundColor: "#111111",
+  backgroundColor: VIEW_CONFIG.backgroundColor,
   scene: [BattleScene],
 });
