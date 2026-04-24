@@ -16,3 +16,7 @@ export interface MovementInputData {
 }
 
 export const PLAYER_ID = "player";
+
+export interface RandomStateData {
+  seed: number;
+}

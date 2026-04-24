@@ -40,7 +40,7 @@ export class BattleScene extends Phaser.Scene {
       delta / 1000,
     );
 
-    this.viewSyncSystem.resolve(this.instanceContainer, this.phaserViews);
+    this.viewSyncSystem.resolve(this, this.instanceContainer, this.phaserViews);
   }
 
   private createWasdKeys(): WasdKeys {

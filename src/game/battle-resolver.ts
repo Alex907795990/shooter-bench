@@ -2,7 +2,18 @@ import type { MovementInputData } from "./data";
 import { PLAYER_ID } from "./data";
 import type { InstanceContainer } from "./instances";
 import { ResolveContainer } from "./resolve-container";
-import { CameraFollowSystem, PlayerMovementSystem, type BattleSystem } from "./systems";
+import {
+  CameraFollowSystem,
+  EnemyHitFlashSystem,
+  EnemySpawnSystem,
+  PlayerMovementSystem,
+  ProjectileHitSystem,
+  ProjectileMovementSystem,
+  WeaponAimSystem,
+  WeaponFireSystem,
+  WeaponFollowSystem,
+  type BattleSystem,
+} from "./systems";
 
 export interface BattleFrameInput {
   movement: MovementInputData;
@@ -10,7 +21,17 @@ export interface BattleFrameInput {
 
 export class BattleResolver {
   private readonly resolveContainer = new ResolveContainer();
-  private readonly systems: BattleSystem[] = [new PlayerMovementSystem(), new CameraFollowSystem()];
+  private readonly systems: BattleSystem[] = [
+    new PlayerMovementSystem(),
+    new WeaponFollowSystem(),
+    new EnemySpawnSystem(),
+    new WeaponAimSystem(),
+    new WeaponFireSystem(),
+    new ProjectileMovementSystem(),
+    new ProjectileHitSystem(),
+    new EnemyHitFlashSystem(),
+    new CameraFollowSystem(),
+  ];
 
   constructor(private readonly instanceContainer: InstanceContainer) {}
 

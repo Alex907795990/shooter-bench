@@ -14,4 +14,29 @@ export interface CameraMovedEvent {
   position: Vector2Data;
 }
 
-export type BattleEvent = PlayerMovedEvent | CameraMovedEvent;
+export interface WeaponFiredEvent {
+  type: "weapon-fired";
+  weaponId: string;
+  projectileId: string;
+  targetEnemyId: string;
+}
+
+export interface EnemySpawnedEvent {
+  type: "enemy-spawned";
+  enemyId: string;
+  position: Vector2Data;
+}
+
+export interface ProjectileHitEnemyEvent {
+  type: "projectile-hit-enemy";
+  projectileId: string;
+  enemyId: string;
+  position: Vector2Data;
+}
+
+export type BattleEvent =
+  | PlayerMovedEvent
+  | CameraMovedEvent
+  | WeaponFiredEvent
+  | EnemySpawnedEvent
+  | ProjectileHitEnemyEvent;
