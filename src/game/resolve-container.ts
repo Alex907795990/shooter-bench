@@ -40,7 +40,9 @@ export class ResolveContainer {
   }
 
   clear(): void {
-    this.intents = [];
-    this.events = [];
+    //不要在这里清空intent和event
+    //不要在这里清空intent和event
+    //允许部分intent和event在下一帧处理
+    //所有intent和event清理应该依赖时间消费的时点，而不是统一清理
   }
 }
