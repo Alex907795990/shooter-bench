@@ -1,0 +1,4 @@
+interface:
+  display_name: "游戏客户端逻辑架构"
+  short_description: "应用 Resolver/System 客户端逻辑架构。"
+  default_prompt: "使用 $game-client-logic-architecture 设计或审查游戏客户端逻辑代码。"
