@@ -1,5 +1,6 @@
 * 本项目是一个初创项目，不需要考虑兼容性，不要迁就已有代码。
 * 所有代码修改都要遵循game-client-logic-architecture skill
+* 审查或评审代码时，读docs/评审标准.md
 - Read existing files before writing. Don't re-read unless changed.
 - Thorough in reasoning, concise in output.
 - Skip files over 100KB unless required.

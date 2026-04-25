@@ -1,5 +1,6 @@
 import * as Phaser from "phaser";
 import { BattleResolver } from "../game/battle-resolver";
+import type { MovementInputData } from "../game/data";
 import { createBattleInstanceContainer, type InstanceContainer } from "../game/instances";
 import { createPhaserViewContainer, type PhaserViewContainer } from "../phaser/phaser-view-instances";
 import { BattleViewInitializeSystem, BattleViewSyncSystem } from "../phaser/phaser-view-systems";
@@ -48,15 +49,15 @@ export class BattleScene extends Phaser.Scene {
       throw new Error("Keyboard input is not available.");
     }
 
-    return this.input.keyboard.addKeys({
-      w: Phaser.Input.Keyboard.KeyCodes.W,
-      a: Phaser.Input.Keyboard.KeyCodes.A,
-      s: Phaser.Input.Keyboard.KeyCodes.S,
-      d: Phaser.Input.Keyboard.KeyCodes.D,
-    }) as unknown as WasdKeys;
+    return {
+      w: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
+      a: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+      s: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
+      d: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+    };
   }
 
-  private readMovementInput() {
+  private readMovementInput(): MovementInputData {
     return {
       x: Number(this.keys.d.isDown) - Number(this.keys.a.isDown),
       y: Number(this.keys.s.isDown) - Number(this.keys.w.isDown),
