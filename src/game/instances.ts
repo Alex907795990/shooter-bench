@@ -1,5 +1,6 @@
 import { DEMO_BATTLE_ROUNDS } from "./battle-round-definitions";
 import type {
+  BattlePhaseData,
   BattleRoundDefinitionData,
   BattleRoundStatusData,
   EnemyKindData,
@@ -91,12 +92,37 @@ export interface EnemySpawnMarkerInstance {
   spawnDelayRemainingSeconds: number;
 }
 
+export interface MaterialDropInstance {
+  id: string;
+  position: Vector2Data;
+  amount: number;
+  pickupRadius: number;
+  attractRadius: number;
+  attractSpeed: number;
+}
+
+export interface PlayerEconomyInstance {
+  totalMaterial: number;
+  waveMaterial: number;
+}
+
+export interface WaveStatsInstance {
+  killCount: number;
+}
+
+export interface BattleSessionInstance {
+  phase: BattlePhaseData;
+}
+
 export interface InstanceContainer {
   worldBounds: RectangleData;
   randomState: RandomStateData;
   battleRoundDefinitions: BattleRoundDefinitionData[];
+  battleSession: BattleSessionInstance;
   battleRound: BattleRoundInstance;
   waveGroupProgress: Map<string, WaveGroupProgressInstance>;
+  playerEconomy: PlayerEconomyInstance;
+  waveStats: WaveStatsInstance;
   players: Map<string, PlayerInstance>;
   cameras: Map<string, CameraInstance>;
   weapons: Map<string, WeaponInstance>;
@@ -104,9 +130,11 @@ export interface InstanceContainer {
   enemies: Map<string, EnemyInstance>;
   enemySpawners: Map<string, EnemySpawnerInstance>;
   enemySpawnMarkers: Map<string, EnemySpawnMarkerInstance>;
+  materialDrops: Map<string, MaterialDropInstance>;
   nextProjectileIndex: number;
   nextEnemyIndex: number;
   nextEnemySpawnMarkerIndex: number;
+  nextMaterialDropIndex: number;
 }
 
 export function createBattleInstanceContainer(): InstanceContainer {
@@ -123,6 +151,9 @@ export function createBattleInstanceContainer(): InstanceContainer {
       seed: 93827,
     },
     battleRoundDefinitions: DEMO_BATTLE_ROUNDS,
+    battleSession: {
+      phase: "battle",
+    },
     battleRound: {
       roundNumber: firstRound.roundNumber,
       totalRounds: DEMO_BATTLE_ROUNDS.length,
@@ -133,6 +164,13 @@ export function createBattleInstanceContainer(): InstanceContainer {
       remainingSeconds: firstRound.durationSeconds,
     },
     waveGroupProgress: new Map(),
+    playerEconomy: {
+      totalMaterial: 0,
+      waveMaterial: 0,
+    },
+    waveStats: {
+      killCount: 0,
+    },
     players: new Map([
       [
         "player",
@@ -194,8 +232,10 @@ export function createBattleInstanceContainer(): InstanceContainer {
     enemies: new Map(),
     enemySpawners: new Map(),
     enemySpawnMarkers: new Map(),
+    materialDrops: new Map(),
     nextProjectileIndex: 1,
     nextEnemyIndex: 1,
     nextEnemySpawnMarkerIndex: 1,
+    nextMaterialDropIndex: 1,
   };
 }

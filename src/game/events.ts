@@ -59,6 +59,7 @@ export interface EnemyDiedEvent {
   type: "enemy-died";
   enemyId: string;
   sourceId: string;
+  position: Vector2Data;
 }
 
 export interface PlayerDamagedEvent {
@@ -67,6 +68,27 @@ export interface PlayerDamagedEvent {
   sourceId: string;
   damage: number;
   healthRemaining: number;
+}
+
+export interface MaterialDroppedEvent {
+  type: "material-dropped";
+  dropId: string;
+  position: Vector2Data;
+  amount: number;
+}
+
+export interface MaterialPickedUpEvent {
+  type: "material-picked-up";
+  dropId: string;
+  playerId: string;
+  amount: number;
+  totalMaterial: number;
+}
+
+export interface BattlePhaseChangedEvent {
+  type: "battle-phase-changed";
+  fromPhase: string;
+  toPhase: string;
 }
 
 export type BattleEvent =
@@ -79,4 +101,7 @@ export type BattleEvent =
   | ProjectileHitEnemyEvent
   | EnemyDamagedEvent
   | EnemyDiedEvent
-  | PlayerDamagedEvent;
+  | PlayerDamagedEvent
+  | MaterialDroppedEvent
+  | MaterialPickedUpEvent
+  | BattlePhaseChangedEvent;

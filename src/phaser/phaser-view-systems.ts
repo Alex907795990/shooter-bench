@@ -2,11 +2,15 @@ import type * as Phaser from "phaser";
 import { PLAYER_ID } from "../game/data";
 import {
   BattleRoundInstanceOps,
+  BattleSessionInstanceOps,
   CameraInstanceOps,
   EnemyInstanceOps,
   EnemySpawnMarkerInstanceOps,
+  MaterialDropInstanceOps,
+  PlayerEconomyInstanceOps,
   PlayerInstanceOps,
   ProjectileInstanceOps,
+  WaveStatsInstanceOps,
   WeaponInstanceOps,
   WorldBoundsOps,
 } from "../game/instance-ops";
@@ -17,26 +21,44 @@ import {
   CameraAnchorViewOps,
   EnemyViewOps,
   EnemySpawnMarkerViewOps,
+  MaterialDropViewOps,
   PlayerViewOps,
   ProjectileViewOps,
+  ShopOverlayViewOps,
+  WaveSummaryOverlayViewOps,
   WeaponViewOps,
   WorldViewOps,
   createBattleHudViewInstance,
   createCameraAnchorViewInstance,
   createEnemyViewInstance,
   createEnemySpawnMarkerViewInstance,
+  createMaterialDropViewInstance,
   createPlayerViewInstance,
   createProjectileViewInstance,
+  createShopOverlayViewInstance,
+  createWaveSummaryOverlayViewInstance,
   createWeaponViewInstance,
   createWorldViewInstance,
 } from "./phaser-view-ops";
 
 export class BattleViewInitializeSystem {
-  resolve(scene: Phaser.Scene, instanceContainer: InstanceContainer, phaserViews: PhaserViewContainer): void {
+  resolve(
+    scene: Phaser.Scene,
+    instanceContainer: InstanceContainer,
+    phaserViews: PhaserViewContainer,
+    handlers: { onContinueWaveSummary: () => void },
+  ): void {
     this.createWorldView(scene, instanceContainer, phaserViews);
     this.createPlayerView(scene, instanceContainer, phaserViews);
     this.createCameraView(scene, instanceContainer, phaserViews);
     BattleHudViewOps.add(phaserViews, createBattleHudViewInstance(scene, "battle-hud"));
+    WaveSummaryOverlayViewOps.add(
+      phaserViews,
+      createWaveSummaryOverlayViewInstance(scene, "wave-summary", handlers.onContinueWaveSummary),
+    );
+    WaveSummaryOverlayViewOps.setVisible(phaserViews, "wave-summary", false);
+    ShopOverlayViewOps.add(phaserViews, createShopOverlayViewInstance(scene, "shop"));
+    ShopOverlayViewOps.setVisible(phaserViews, "shop", false);
   }
 
   private createWorldView(
@@ -115,18 +137,92 @@ export class BattleViewSyncSystem {
     this.syncEnemySpawnMarkerViews(scene, instanceContainer, phaserViews);
     this.syncEnemyViews(scene, instanceContainer, phaserViews);
     this.syncProjectileViews(scene, instanceContainer, phaserViews);
+    this.syncMaterialDropViews(scene, instanceContainer, phaserViews);
+    this.syncOverlays(instanceContainer, phaserViews);
+  }
+
+  private syncMaterialDropViews(
+    scene: Phaser.Scene,
+    instanceContainer: InstanceContainer,
+    phaserViews: PhaserViewContainer,
+  ): void {
+    const activeIds = new Set<string>();
+
+    for (const drop of MaterialDropInstanceOps.list(instanceContainer)) {
+      activeIds.add(drop.id);
+
+      if (!MaterialDropViewOps.get(phaserViews, drop.id)) {
+        MaterialDropViewOps.add(
+          phaserViews,
+          createMaterialDropViewInstance(scene, drop.id, drop.position.x, drop.position.y),
+        );
+      }
+
+      MaterialDropViewOps.setPosition(phaserViews, drop.id, drop.position.x, drop.position.y);
+    }
+
+    for (const dropViewId of MaterialDropViewOps.listIds(phaserViews)) {
+      if (!activeIds.has(dropViewId)) {
+        MaterialDropViewOps.remove(phaserViews, dropViewId);
+      }
+    }
+  }
+
+  private syncOverlays(instanceContainer: InstanceContainer, phaserViews: PhaserViewContainer): void {
+    const session = BattleSessionInstanceOps.get(instanceContainer);
+    const battleRound = BattleRoundInstanceOps.get(instanceContainer);
+    const economy = PlayerEconomyInstanceOps.get(instanceContainer);
+    const stats = WaveStatsInstanceOps.get(instanceContainer);
+    const player = PlayerInstanceOps.get(instanceContainer, PLAYER_ID);
+
+    const showSummary = session.phase === "wave-summary";
+    WaveSummaryOverlayViewOps.setVisible(phaserViews, "wave-summary", showSummary);
+
+    if (showSummary) {
+      WaveSummaryOverlayViewOps.setBody(
+        phaserViews,
+        "wave-summary",
+        [
+          `Round ${battleRound.roundNumber}/${battleRound.totalRounds}`,
+          `Wave material: ${economy.waveMaterial}`,
+          `Total material: ${economy.totalMaterial}`,
+          `Kills: ${stats.killCount}`,
+          `HP remaining: ${player ? player.health.current : 0}/${player ? player.health.max : 0}`,
+        ].join("\n"),
+      );
+    }
+
+    const showShop = session.phase === "shop";
+    ShopOverlayViewOps.setVisible(phaserViews, "shop", showShop);
+
+    if (showShop) {
+      ShopOverlayViewOps.setBody(
+        phaserViews,
+        "shop",
+        [`Total material: ${economy.totalMaterial}`, "", "Shop coming soon"].join("\n"),
+      );
+    }
   }
 
   private syncBattleHud(instanceContainer: InstanceContainer, phaserViews: PhaserViewContainer): void {
     const battleRound = BattleRoundInstanceOps.get(instanceContainer);
+    const economy = PlayerEconomyInstanceOps.get(instanceContainer);
+    const stats = WaveStatsInstanceOps.get(instanceContainer);
+    const player = PlayerInstanceOps.get(instanceContainer, PLAYER_ID);
+    const session = BattleSessionInstanceOps.get(instanceContainer);
     const secondsRemaining = Math.ceil(battleRound.remainingSeconds);
+    const timeText =
+      session.phase === "battle" && battleRound.status === "running"
+        ? `${secondsRemaining}s`
+        : "Round clear";
 
-    BattleHudViewOps.setText(
-      phaserViews,
-      "battle-hud",
-      `Round ${battleRound.roundNumber}/${battleRound.totalRounds}`,
-      battleRound.status === "running" ? `${secondsRemaining}s` : "Round clear",
-    );
+    BattleHudViewOps.setText(phaserViews, "battle-hud", {
+      round: `Round ${battleRound.roundNumber}/${battleRound.totalRounds}`,
+      time: timeText,
+      health: `HP ${player ? player.health.current : 0}/${player ? player.health.max : 0}`,
+      material: `Material ${economy.totalMaterial}`,
+      kills: `Kills ${stats.killCount}`,
+    });
   }
 
   private syncWeaponViews(

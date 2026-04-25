@@ -4,9 +4,12 @@ import type {
   CameraAnchorViewInstance,
   EnemyViewInstance,
   EnemySpawnMarkerViewInstance,
+  MaterialDropViewInstance,
   PhaserViewContainer,
   PlayerViewInstance,
   ProjectileViewInstance,
+  ShopOverlayViewInstance,
+  WaveSummaryOverlayViewInstance,
   WeaponViewInstance,
   WorldViewInstance,
 } from "./phaser-view-instances";
@@ -239,15 +242,123 @@ export class BattleHudViewOps {
     return container.battleHudViews.get(id);
   }
 
-  static setText(container: PhaserViewContainer, id: string, roundText: string, timeText: string): void {
+  static setText(
+    container: PhaserViewContainer,
+    id: string,
+    fields: { round: string; time: string; health: string; material: string; kills: string },
+  ): void {
     const view = container.battleHudViews.get(id);
 
     if (!view) {
       return;
     }
 
-    view.roundText.setText(roundText);
-    view.timeText.setText(timeText);
+    view.roundText.setText(fields.round);
+    view.timeText.setText(fields.time);
+    view.healthText.setText(fields.health);
+    view.materialText.setText(fields.material);
+    view.killsText.setText(fields.kills);
+  }
+}
+
+export class MaterialDropViewOps {
+  static add(container: PhaserViewContainer, view: MaterialDropViewInstance): void {
+    container.materialDropViews.set(view.id, view);
+  }
+
+  static get(container: PhaserViewContainer, id: string): MaterialDropViewInstance | undefined {
+    return container.materialDropViews.get(id);
+  }
+
+  static listIds(container: PhaserViewContainer): string[] {
+    return [...container.materialDropViews.keys()];
+  }
+
+  static setPosition(container: PhaserViewContainer, id: string, x: number, y: number): void {
+    const view = container.materialDropViews.get(id);
+
+    if (!view) {
+      return;
+    }
+
+    view.object.setPosition(x, y);
+  }
+
+  static remove(container: PhaserViewContainer, id: string): void {
+    const view = container.materialDropViews.get(id);
+
+    if (!view) {
+      return;
+    }
+
+    view.object.destroy();
+    container.materialDropViews.delete(id);
+  }
+}
+
+export class WaveSummaryOverlayViewOps {
+  static add(container: PhaserViewContainer, view: WaveSummaryOverlayViewInstance): void {
+    container.waveSummaryOverlayViews.set(view.id, view);
+  }
+
+  static get(container: PhaserViewContainer, id: string): WaveSummaryOverlayViewInstance | undefined {
+    return container.waveSummaryOverlayViews.get(id);
+  }
+
+  static setVisible(container: PhaserViewContainer, id: string, visible: boolean): void {
+    const view = container.waveSummaryOverlayViews.get(id);
+
+    if (!view) {
+      return;
+    }
+
+    view.panel.setVisible(visible);
+    view.titleText.setVisible(visible);
+    view.bodyText.setVisible(visible);
+    view.continueButton.setVisible(visible);
+    view.continueText.setVisible(visible);
+  }
+
+  static setBody(container: PhaserViewContainer, id: string, body: string): void {
+    const view = container.waveSummaryOverlayViews.get(id);
+
+    if (!view) {
+      return;
+    }
+
+    view.bodyText.setText(body);
+  }
+}
+
+export class ShopOverlayViewOps {
+  static add(container: PhaserViewContainer, view: ShopOverlayViewInstance): void {
+    container.shopOverlayViews.set(view.id, view);
+  }
+
+  static get(container: PhaserViewContainer, id: string): ShopOverlayViewInstance | undefined {
+    return container.shopOverlayViews.get(id);
+  }
+
+  static setVisible(container: PhaserViewContainer, id: string, visible: boolean): void {
+    const view = container.shopOverlayViews.get(id);
+
+    if (!view) {
+      return;
+    }
+
+    view.panel.setVisible(visible);
+    view.titleText.setVisible(visible);
+    view.bodyText.setVisible(visible);
+  }
+
+  static setBody(container: PhaserViewContainer, id: string, body: string): void {
+    const view = container.shopOverlayViews.get(id);
+
+    if (!view) {
+      return;
+    }
+
+    view.bodyText.setText(body);
   }
 }
 
@@ -378,11 +489,126 @@ export function createBattleHudViewInstance(scene: Phaser.Scene, id: string): Ba
     fontStyle: "bold",
     color: "#ffffff",
   });
+  const healthText = scene.add.text(18, 76, "", {
+    fontFamily: "monospace",
+    fontSize: "18px",
+    color: "#9ad66f",
+  });
+  const materialText = scene.add.text(18, 100, "", {
+    fontFamily: "monospace",
+    fontSize: "18px",
+    color: "#f7d56b",
+  });
+  const killsText = scene.add.text(18, 124, "", {
+    fontFamily: "monospace",
+    fontSize: "18px",
+    color: "#d6d6d6",
+  });
 
-  roundText.setScrollFactor(0);
-  timeText.setScrollFactor(0);
-  roundText.setDepth(100);
-  timeText.setDepth(100);
+  for (const text of [roundText, timeText, healthText, materialText, killsText]) {
+    text.setScrollFactor(0);
+    text.setDepth(100);
+  }
 
-  return { id, roundText, timeText };
+  return { id, roundText, timeText, healthText, materialText, killsText };
+}
+
+export function createMaterialDropViewInstance(
+  scene: Phaser.Scene,
+  id: string,
+  x: number,
+  y: number,
+): MaterialDropViewInstance {
+  const object = scene.add.circle(x, y, 8, 0x6cd4a8);
+  object.setStrokeStyle(2, 0x1f5a45);
+  object.setDepth(7);
+
+  return { id, object };
+}
+
+export function createWaveSummaryOverlayViewInstance(
+  scene: Phaser.Scene,
+  id: string,
+  onContinue: () => void,
+): WaveSummaryOverlayViewInstance {
+  const camera = scene.cameras.main;
+  const centerX = camera.width / 2;
+  const centerY = camera.height / 2;
+
+  const panel = scene.add.rectangle(centerX, centerY, 480, 320, 0x101418, 0.92);
+  panel.setStrokeStyle(2, 0x8a9ba8);
+  panel.setScrollFactor(0);
+  panel.setDepth(200);
+
+  const titleText = scene.add.text(centerX, centerY - 120, "Wave Clear", {
+    fontFamily: "monospace",
+    fontSize: "28px",
+    fontStyle: "bold",
+    color: "#ffffff",
+  });
+  titleText.setOrigin(0.5);
+  titleText.setScrollFactor(0);
+  titleText.setDepth(201);
+
+  const bodyText = scene.add.text(centerX, centerY - 30, "", {
+    fontFamily: "monospace",
+    fontSize: "18px",
+    color: "#f7f1d0",
+    align: "center",
+  });
+  bodyText.setOrigin(0.5);
+  bodyText.setScrollFactor(0);
+  bodyText.setDepth(201);
+
+  const continueButton = scene.add.rectangle(centerX, centerY + 110, 200, 52, 0x2f6b3c);
+  continueButton.setStrokeStyle(2, 0xb6f0b6);
+  continueButton.setScrollFactor(0);
+  continueButton.setDepth(201);
+  continueButton.setInteractive({ useHandCursor: true });
+  continueButton.on("pointerup", onContinue);
+
+  const continueText = scene.add.text(centerX, centerY + 110, "Continue", {
+    fontFamily: "monospace",
+    fontSize: "20px",
+    fontStyle: "bold",
+    color: "#ffffff",
+  });
+  continueText.setOrigin(0.5);
+  continueText.setScrollFactor(0);
+  continueText.setDepth(202);
+
+  return { id, panel, titleText, bodyText, continueButton, continueText };
+}
+
+export function createShopOverlayViewInstance(scene: Phaser.Scene, id: string): ShopOverlayViewInstance {
+  const camera = scene.cameras.main;
+  const centerX = camera.width / 2;
+  const centerY = camera.height / 2;
+
+  const panel = scene.add.rectangle(centerX, centerY, 480, 320, 0x14110a, 0.94);
+  panel.setStrokeStyle(2, 0xf0b35a);
+  panel.setScrollFactor(0);
+  panel.setDepth(200);
+
+  const titleText = scene.add.text(centerX, centerY - 120, "Shop", {
+    fontFamily: "monospace",
+    fontSize: "28px",
+    fontStyle: "bold",
+    color: "#ffe7a8",
+  });
+  titleText.setOrigin(0.5);
+  titleText.setScrollFactor(0);
+  titleText.setDepth(201);
+
+  const bodyText = scene.add.text(centerX, centerY, "", {
+    fontFamily: "monospace",
+    fontSize: "18px",
+    color: "#f7f1d0",
+    align: "center",
+  });
+  bodyText.setOrigin(0.5);
+  bodyText.setScrollFactor(0);
+  bodyText.setDepth(201);
+
+  return { id, panel, titleText, bodyText };
 }

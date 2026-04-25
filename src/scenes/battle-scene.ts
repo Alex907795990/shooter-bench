@@ -19,6 +19,7 @@ export class BattleScene extends Phaser.Scene {
   private viewInitializeSystem = new BattleViewInitializeSystem();
   private viewSyncSystem = new BattleViewSyncSystem();
   private keys!: WasdKeys;
+  private confirmWaveSummaryRequested = false;
 
   constructor() {
     super("battle");
@@ -30,13 +31,21 @@ export class BattleScene extends Phaser.Scene {
     this.resolver = new BattleResolver(this.instanceContainer);
     this.keys = this.createWasdKeys();
 
-    this.viewInitializeSystem.resolve(this, this.instanceContainer, this.phaserViews);
+    this.viewInitializeSystem.resolve(this, this.instanceContainer, this.phaserViews, {
+      onContinueWaveSummary: () => {
+        this.confirmWaveSummaryRequested = true;
+      },
+    });
   }
 
   update(_time: number, delta: number): void {
+    const confirmWaveSummary = this.confirmWaveSummaryRequested;
+    this.confirmWaveSummaryRequested = false;
+
     this.resolver.resolveFrame(
       {
         movement: this.readMovementInput(),
+        confirmWaveSummary,
       },
       delta / 1000,
     );

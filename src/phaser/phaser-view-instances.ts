@@ -41,6 +41,30 @@ export interface BattleHudViewInstance {
   id: string;
   roundText: Phaser.GameObjects.Text;
   timeText: Phaser.GameObjects.Text;
+  healthText: Phaser.GameObjects.Text;
+  materialText: Phaser.GameObjects.Text;
+  killsText: Phaser.GameObjects.Text;
+}
+
+export interface MaterialDropViewInstance {
+  id: string;
+  object: Phaser.GameObjects.Arc;
+}
+
+export interface WaveSummaryOverlayViewInstance {
+  id: string;
+  panel: Phaser.GameObjects.Rectangle;
+  titleText: Phaser.GameObjects.Text;
+  bodyText: Phaser.GameObjects.Text;
+  continueButton: Phaser.GameObjects.Rectangle;
+  continueText: Phaser.GameObjects.Text;
+}
+
+export interface ShopOverlayViewInstance {
+  id: string;
+  panel: Phaser.GameObjects.Rectangle;
+  titleText: Phaser.GameObjects.Text;
+  bodyText: Phaser.GameObjects.Text;
 }
 
 export interface PhaserViewContainer {
@@ -51,7 +75,10 @@ export interface PhaserViewContainer {
   projectileViews: Map<string, ProjectileViewInstance>;
   enemyViews: Map<string, EnemyViewInstance>;
   enemySpawnMarkerViews: Map<string, EnemySpawnMarkerViewInstance>;
+  materialDropViews: Map<string, MaterialDropViewInstance>;
   battleHudViews: Map<string, BattleHudViewInstance>;
+  waveSummaryOverlayViews: Map<string, WaveSummaryOverlayViewInstance>;
+  shopOverlayViews: Map<string, ShopOverlayViewInstance>;
 }
 
 export function createPhaserViewContainer(): PhaserViewContainer {
@@ -63,6 +90,9 @@ export function createPhaserViewContainer(): PhaserViewContainer {
     projectileViews: new Map(),
     enemyViews: new Map(),
     enemySpawnMarkerViews: new Map(),
+    materialDropViews: new Map(),
     battleHudViews: new Map(),
+    waveSummaryOverlayViews: new Map(),
+    shopOverlayViews: new Map(),
   };
 }

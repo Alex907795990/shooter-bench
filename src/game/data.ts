@@ -28,6 +28,8 @@ export interface RandomStateData {
 
 export type BattleRoundStatusData = "running" | "completed";
 
+export type BattlePhaseData = "battle" | "wave-summary" | "shop";
+
 export type EnemyKindData = "chaser" | "tank" | "runner";
 
 export interface EnemyPrototypeData {
@@ -76,4 +78,11 @@ export interface BattleRoundDefinitionData {
   roundNumber: number;
   durationSeconds: number;
   waveGroups: WaveGroupData[];
+}
+
+export interface MaterialDropPrototypeData {
+  amount: number;
+  pickupRadius: number;
+  attractRadius: number;
+  attractSpeed: number;
 }

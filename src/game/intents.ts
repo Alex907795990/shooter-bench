@@ -14,4 +14,11 @@ export interface ApplyDamageIntent {
   amount: number;
 }
 
-export type BattleIntent = MovePlayerIntent | ApplyDamageIntent;
+export interface ConfirmWaveSummaryIntent {
+  type: "confirm-wave-summary";
+}
+
+export type BattleIntent =
+  | MovePlayerIntent
+  | ApplyDamageIntent
+  | ConfirmWaveSummaryIntent;

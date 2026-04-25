@@ -4,17 +4,19 @@ import type { InstanceContainer } from "./instances";
 import { ResolveContainer } from "./resolve-container";
 import {
   BattleRoundTimerSystem,
-  BattleRoundTransitionSystem,
   CameraFollowSystem,
   DamageSystem,
   EnemyChaseSystem,
   EnemyContactDamageSystem,
   EnemyHitFlashSystem,
+  EnemyKillRewardsSystem,
   EnemySpawnMarkerSystem,
+  MaterialPickupSystem,
   PlayerMovementSystem,
   PlayerHitFlashSystem,
   ProjectileHitSystem,
   ProjectileMovementSystem,
+  WaveSummaryConfirmSystem,
   WaveTelegraphSystem,
   WeaponAimSystem,
   WeaponFireSystem,
@@ -24,12 +26,14 @@ import {
 
 export interface BattleFrameInput {
   movement: MovementInputData;
+  confirmWaveSummary: boolean;
 }
 
 export class BattleResolver {
   private readonly resolveContainer = new ResolveContainer();
   private readonly systems: BattleSystem[] = [
     new BattleRoundTimerSystem(),
+    new WaveSummaryConfirmSystem(),
     new PlayerMovementSystem(),
     new WeaponFollowSystem(),
     new EnemySpawnMarkerSystem(),
@@ -41,10 +45,11 @@ export class BattleResolver {
     new ProjectileHitSystem(),
     new EnemyContactDamageSystem(),
     new DamageSystem(),
+    new EnemyKillRewardsSystem(),
+    new MaterialPickupSystem(),
     new EnemyHitFlashSystem(),
     new PlayerHitFlashSystem(),
     new CameraFollowSystem(),
-    new BattleRoundTransitionSystem(),
   ];
 
   constructor(private readonly instanceContainer: InstanceContainer) {}
@@ -61,14 +66,18 @@ export class BattleResolver {
   }
 
   private importExternalSignals(input: BattleFrameInput): void {
-    if (input.movement.x === 0 && input.movement.y === 0) {
-      return;
+    if (input.movement.x !== 0 || input.movement.y !== 0) {
+      this.resolveContainer.addIntent({
+        type: "move-player",
+        playerId: PLAYER_ID,
+        input: input.movement,
+      });
     }
 
-    this.resolveContainer.addIntent({
-      type: "move-player",
-      playerId: PLAYER_ID,
-      input: input.movement,
-    });
+    if (input.confirmWaveSummary) {
+      this.resolveContainer.addIntent({
+        type: "confirm-wave-summary",
+      });
+    }
   }
 }

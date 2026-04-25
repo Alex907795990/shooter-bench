@@ -39,6 +39,24 @@ export class ResolveContainer {
     );
   }
 
+  consumeEvents<TType extends BattleEvent["type"]>(
+    type: TType,
+  ): Extract<BattleEvent, { type: TType }>[] {
+    const matched: Extract<BattleEvent, { type: TType }>[] = [];
+    const remaining: BattleEvent[] = [];
+
+    for (const event of this.events) {
+      if (event.type === type) {
+        matched.push(event as Extract<BattleEvent, { type: TType }>);
+      } else {
+        remaining.push(event);
+      }
+    }
+
+    this.events = remaining;
+    return matched;
+  }
+
   clear(): void {
     //不要在这里清空intent和event
     //不要在这里清空intent和event

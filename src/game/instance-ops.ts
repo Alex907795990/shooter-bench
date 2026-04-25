@@ -1,13 +1,17 @@
-import type { BattleRoundDefinitionData, RectangleData, Vector2Data } from "./data";
+import type { BattlePhaseData, BattleRoundDefinitionData, RectangleData, Vector2Data } from "./data";
 import type {
   BattleRoundInstance,
+  BattleSessionInstance,
   CameraInstance,
   EnemyInstance,
   EnemySpawnMarkerInstance,
   EnemySpawnerInstance,
   InstanceContainer,
+  MaterialDropInstance,
+  PlayerEconomyInstance,
   PlayerInstance,
   ProjectileInstance,
+  WaveStatsInstance,
   WeaponInstance,
   WaveGroupProgressInstance,
 } from "./instances";
@@ -351,5 +355,78 @@ export class RandomStateOps {
   static next(container: InstanceContainer): number {
     container.randomState.seed = (container.randomState.seed * 1664525 + 1013904223) >>> 0;
     return container.randomState.seed / 4294967296;
+  }
+}
+
+export class BattleSessionInstanceOps {
+  static get(container: InstanceContainer): BattleSessionInstance {
+    return container.battleSession;
+  }
+
+  static setPhase(container: InstanceContainer, phase: BattlePhaseData): void {
+    container.battleSession.phase = phase;
+  }
+}
+
+export class PlayerEconomyInstanceOps {
+  static get(container: InstanceContainer): PlayerEconomyInstance {
+    return container.playerEconomy;
+  }
+
+  static addMaterial(container: InstanceContainer, amount: number): void {
+    container.playerEconomy.totalMaterial += amount;
+    container.playerEconomy.waveMaterial += amount;
+  }
+
+  static resetWaveMaterial(container: InstanceContainer): void {
+    container.playerEconomy.waveMaterial = 0;
+  }
+}
+
+export class WaveStatsInstanceOps {
+  static get(container: InstanceContainer): WaveStatsInstance {
+    return container.waveStats;
+  }
+
+  static incrementKills(container: InstanceContainer): void {
+    container.waveStats.killCount += 1;
+  }
+
+  static reset(container: InstanceContainer): void {
+    container.waveStats.killCount = 0;
+  }
+}
+
+export class MaterialDropInstanceOps {
+  static list(container: InstanceContainer): MaterialDropInstance[] {
+    return [...container.materialDrops.values()];
+  }
+
+  static add(container: InstanceContainer, drop: MaterialDropInstance): void {
+    container.materialDrops.set(drop.id, drop);
+  }
+
+  static remove(container: InstanceContainer, dropId: string): void {
+    container.materialDrops.delete(dropId);
+  }
+
+  static clear(container: InstanceContainer): void {
+    container.materialDrops.clear();
+  }
+
+  static setPosition(container: InstanceContainer, dropId: string, position: Vector2Data): void {
+    const drop = container.materialDrops.get(dropId);
+
+    if (!drop) {
+      return;
+    }
+
+    drop.position = position;
+  }
+
+  static nextId(container: InstanceContainer): string {
+    const id = `material-drop-${container.nextMaterialDropIndex}`;
+    container.nextMaterialDropIndex += 1;
+    return id;
   }
 }

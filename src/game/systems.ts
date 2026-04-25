@@ -1,6 +1,7 @@
 import { ENEMY_PROTOTYPES } from "./battle-round-definitions";
 import {
   PLAYER_ID,
+  type MaterialDropPrototypeData,
   type RectangleData,
   type SpawnPositionRuleData,
   type Vector2Data,
@@ -9,13 +10,17 @@ import {
 } from "./data";
 import {
   BattleRoundInstanceOps,
+  BattleSessionInstanceOps,
   CameraInstanceOps,
   EnemyInstanceOps,
   EnemySpawnMarkerInstanceOps,
   EnemySpawnerInstanceOps,
+  MaterialDropInstanceOps,
+  PlayerEconomyInstanceOps,
   PlayerInstanceOps,
   ProjectileInstanceOps,
   RandomStateOps,
+  WaveStatsInstanceOps,
   WeaponInstanceOps,
   WaveGroupProgressInstanceOps,
   WorldBoundsOps,
@@ -23,12 +28,24 @@ import {
 import type { InstanceContainer } from "./instances";
 import type { ResolveContainer } from "./resolve-container";
 
+const DEFAULT_MATERIAL_DROP: MaterialDropPrototypeData = {
+  amount: 1,
+  pickupRadius: 18,
+  attractRadius: 110,
+  attractSpeed: 360,
+};
+
 export interface BattleSystem {
   resolve(container: InstanceContainer, resolveContainer: ResolveContainer, deltaSeconds: number): void;
 }
 
 export class PlayerMovementSystem implements BattleSystem {
   resolve(container: InstanceContainer, resolveContainer: ResolveContainer, deltaSeconds: number): void {
+    if (BattleSessionInstanceOps.get(container).phase !== "battle") {
+      resolveContainer.consumeIntents("move-player");
+      return;
+    }
+
     const moveIntents = resolveContainer.consumeIntents("move-player");
     const bounds = WorldBoundsOps.get(container);
 
@@ -104,6 +121,12 @@ export class WeaponFollowSystem implements BattleSystem {
 
 export class BattleRoundTimerSystem implements BattleSystem {
   resolve(container: InstanceContainer, resolveContainer: ResolveContainer, deltaSeconds: number): void {
+    const session = BattleSessionInstanceOps.get(container);
+
+    if (session.phase !== "battle") {
+      return;
+    }
+
     const battleRound = BattleRoundInstanceOps.get(container);
 
     if (battleRound.status !== "running") {
@@ -123,37 +146,116 @@ export class BattleRoundTimerSystem implements BattleSystem {
     EnemySpawnMarkerInstanceOps.clear(container);
     EnemyInstanceOps.clear(container);
     ProjectileInstanceOps.clear(container);
+    MaterialDropInstanceOps.clear(container);
+    BattleSessionInstanceOps.setPhase(container, "wave-summary");
     resolveContainer.addEvent({
       type: "battle-round-ended",
       roundNumber: updatedRound.roundNumber,
     });
+    resolveContainer.addEvent({
+      type: "battle-phase-changed",
+      fromPhase: "battle",
+      toPhase: "wave-summary",
+    });
   }
 }
 
-export class BattleRoundTransitionSystem implements BattleSystem {
-  private readonly nextRoundDelaySeconds = 2;
+export class WaveSummaryConfirmSystem implements BattleSystem {
+  resolve(container: InstanceContainer, resolveContainer: ResolveContainer): void {
+    const intents = resolveContainer.consumeIntents("confirm-wave-summary");
 
-  resolve(container: InstanceContainer, _resolveContainer: ResolveContainer, deltaSeconds: number): void {
-    const battleRound = BattleRoundInstanceOps.get(container);
-
-    if (battleRound.status !== "completed" || battleRound.roundNumber >= battleRound.totalRounds) {
+    if (intents.length === 0) {
       return;
     }
 
-    if (_resolveContainer.readEvents("battle-round-ended").length > 0) {
+    const session = BattleSessionInstanceOps.get(container);
+
+    if (session.phase !== "wave-summary") {
       return;
     }
 
-    const completedElapsedSeconds = battleRound.completedElapsedSeconds + deltaSeconds;
+    BattleSessionInstanceOps.setPhase(container, "shop");
+    resolveContainer.addEvent({
+      type: "battle-phase-changed",
+      fromPhase: "wave-summary",
+      toPhase: "shop",
+    });
+  }
+}
 
-    if (completedElapsedSeconds < this.nextRoundDelaySeconds) {
-      BattleRoundInstanceOps.setCompletedElapsed(container, completedElapsedSeconds);
+export class EnemyKillRewardsSystem implements BattleSystem {
+  resolve(container: InstanceContainer, resolveContainer: ResolveContainer): void {
+    const events = resolveContainer.consumeEvents("enemy-died");
+
+    for (const event of events) {
+      WaveStatsInstanceOps.incrementKills(container);
+
+      const dropId = MaterialDropInstanceOps.nextId(container);
+      const drop = {
+        id: dropId,
+        position: { ...event.position },
+        amount: DEFAULT_MATERIAL_DROP.amount,
+        pickupRadius: DEFAULT_MATERIAL_DROP.pickupRadius,
+        attractRadius: DEFAULT_MATERIAL_DROP.attractRadius,
+        attractSpeed: DEFAULT_MATERIAL_DROP.attractSpeed,
+      };
+
+      MaterialDropInstanceOps.add(container, drop);
+      resolveContainer.addEvent({
+        type: "material-dropped",
+        dropId: drop.id,
+        position: { ...drop.position },
+        amount: drop.amount,
+      });
+    }
+  }
+}
+
+export class MaterialPickupSystem implements BattleSystem {
+  resolve(container: InstanceContainer, resolveContainer: ResolveContainer, deltaSeconds: number): void {
+    const session = BattleSessionInstanceOps.get(container);
+
+    if (session.phase !== "battle") {
       return;
     }
 
-    WaveGroupProgressInstanceOps.clear(container);
-    EnemySpawnMarkerInstanceOps.clear(container);
-    BattleRoundInstanceOps.startNextRound(container);
+    const player = PlayerInstanceOps.get(container, PLAYER_ID);
+
+    if (!player) {
+      return;
+    }
+
+    for (const drop of MaterialDropInstanceOps.list(container)) {
+      const dx = player.position.x - drop.position.x;
+      const dy = player.position.y - drop.position.y;
+      const distanceSquared = dx * dx + dy * dy;
+      const pickupRadius = drop.pickupRadius + player.radius;
+
+      if (distanceSquared <= pickupRadius * pickupRadius) {
+        PlayerEconomyInstanceOps.addMaterial(container, drop.amount);
+        MaterialDropInstanceOps.remove(container, drop.id);
+        resolveContainer.addEvent({
+          type: "material-picked-up",
+          dropId: drop.id,
+          playerId: player.id,
+          amount: drop.amount,
+          totalMaterial: PlayerEconomyInstanceOps.get(container).totalMaterial,
+        });
+        continue;
+      }
+
+      if (distanceSquared > drop.attractRadius * drop.attractRadius) {
+        continue;
+      }
+
+      const distance = Math.sqrt(distanceSquared) || 1;
+      const step = drop.attractSpeed * deltaSeconds;
+
+      MaterialDropInstanceOps.setPosition(container, drop.id, {
+        x: drop.position.x + (dx / distance) * step,
+        y: drop.position.y + (dy / distance) * step,
+      });
+    }
   }
 }
 
@@ -345,6 +447,10 @@ export class EnemySpawnSystem implements BattleSystem {
 
 export class EnemyChaseSystem implements BattleSystem {
   resolve(container: InstanceContainer, _resolveContainer: ResolveContainer, deltaSeconds: number): void {
+    if (BattleSessionInstanceOps.get(container).phase !== "battle") {
+      return;
+    }
+
     const player = PlayerInstanceOps.get(container, PLAYER_ID);
 
     if (!player) {
@@ -390,6 +496,10 @@ export class WeaponAimSystem implements BattleSystem {
 
 export class WeaponFireSystem implements BattleSystem {
   resolve(container: InstanceContainer, resolveContainer: ResolveContainer, deltaSeconds: number): void {
+    if (BattleSessionInstanceOps.get(container).phase !== "battle") {
+      return;
+    }
+
     const enemies = EnemyInstanceOps.list(container);
 
     for (const weapon of WeaponInstanceOps.list(container)) {
@@ -431,6 +541,10 @@ export class WeaponFireSystem implements BattleSystem {
 
 export class ProjectileMovementSystem implements BattleSystem {
   resolve(container: InstanceContainer, _resolveContainer: ResolveContainer, deltaSeconds: number): void {
+    if (BattleSessionInstanceOps.get(container).phase !== "battle") {
+      return;
+    }
+
     const bounds = WorldBoundsOps.get(container);
 
     for (const projectile of ProjectileInstanceOps.list(container)) {
@@ -486,6 +600,10 @@ export class ProjectileHitSystem implements BattleSystem {
 
 export class EnemyContactDamageSystem implements BattleSystem {
   resolve(container: InstanceContainer, resolveContainer: ResolveContainer, deltaSeconds: number): void {
+    if (BattleSessionInstanceOps.get(container).phase !== "battle") {
+      return;
+    }
+
     const players = PlayerInstanceOps.list(container);
 
     for (const enemy of EnemyInstanceOps.list(container)) {
@@ -565,6 +683,7 @@ export class DamageSystem implements BattleSystem {
       type: "enemy-died",
       enemyId: enemy.id,
       sourceId,
+      position: { ...enemy.position },
     });
   }
 
