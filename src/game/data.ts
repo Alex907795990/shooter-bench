@@ -15,6 +15,11 @@ export interface MovementInputData {
   y: number;
 }
 
+export interface HealthData {
+  current: number;
+  max: number;
+}
+
 export const PLAYER_ID = "player";
 
 export interface RandomStateData {

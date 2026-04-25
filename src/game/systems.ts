@@ -1,4 +1,4 @@
-import type { RectangleData, Vector2Data } from "./data";
+import { PLAYER_ID, type RectangleData, type Vector2Data } from "./data";
 import {
   CameraInstanceOps,
   EnemyInstanceOps,
@@ -52,7 +52,7 @@ export class PlayerMovementSystem implements BattleSystem {
 
 export class CameraFollowSystem implements BattleSystem {
   resolve(container: InstanceContainer, resolveContainer: ResolveContainer): void {
-    for (const camera of container.cameras.values()) {
+    for (const camera of CameraInstanceOps.list(container)) {
       const target = PlayerInstanceOps.get(container, camera.targetId);
 
       if (!target) {
@@ -105,6 +105,11 @@ export class EnemySpawnSystem implements BattleSystem {
           id: EnemyInstanceOps.nextId(container),
           position: randomSpawnPosition(container, bounds),
           radius: 18,
+          health: { current: 3, max: 3 },
+          moveSpeed: 120,
+          contactDamage: 1,
+          contactDamageCooldownSeconds: 0.7,
+          contactDamageElapsedSeconds: 0.7,
           hitFlashSeconds: 0,
         };
 
@@ -121,12 +126,37 @@ export class EnemySpawnSystem implements BattleSystem {
   }
 }
 
+export class EnemyChaseSystem implements BattleSystem {
+  resolve(container: InstanceContainer, _resolveContainer: ResolveContainer, deltaSeconds: number): void {
+    const player = PlayerInstanceOps.get(container, PLAYER_ID);
+
+    if (!player) {
+      return;
+    }
+
+    const bounds = WorldBoundsOps.get(container);
+
+    for (const enemy of EnemyInstanceOps.list(container)) {
+      const direction = normalizeInput({
+        x: player.position.x - enemy.position.x,
+        y: player.position.y - enemy.position.y,
+      });
+      const targetPosition = {
+        x: enemy.position.x + direction.x * enemy.moveSpeed * deltaSeconds,
+        y: enemy.position.y + direction.y * enemy.moveSpeed * deltaSeconds,
+      };
+
+      EnemyInstanceOps.setPosition(container, enemy.id, clampCircleToBounds(targetPosition, enemy.radius, bounds));
+    }
+  }
+}
+
 export class WeaponAimSystem implements BattleSystem {
   resolve(container: InstanceContainer): void {
     const enemies = EnemyInstanceOps.list(container);
 
     for (const weapon of WeaponInstanceOps.list(container)) {
-      const target = findNearestEnemy(weapon.position, enemies);
+      const target = findNearestEnemyInRange(weapon.position, enemies, weapon.attackRange);
 
       if (!target) {
         continue;
@@ -147,7 +177,7 @@ export class WeaponFireSystem implements BattleSystem {
 
     for (const weapon of WeaponInstanceOps.list(container)) {
       const cooldownSeconds = Math.max(0, weapon.cooldownSeconds - deltaSeconds);
-      const target = findNearestEnemy(weapon.position, enemies);
+      const target = findNearestEnemyInRange(weapon.position, enemies, weapon.attackRange);
 
       if (!target || cooldownSeconds > 0) {
         WeaponInstanceOps.setCooldown(container, weapon.id, cooldownSeconds);
@@ -169,6 +199,7 @@ export class WeaponFireSystem implements BattleSystem {
           y: direction.y * weapon.projectileSpeed,
         },
         radius: weapon.projectileRadius,
+        damage: weapon.projectileDamage,
       });
       WeaponInstanceOps.setCooldown(container, weapon.id, weapon.fireIntervalSeconds);
       resolveContainer.addEvent({
@@ -217,7 +248,13 @@ export class ProjectileHitSystem implements BattleSystem {
 
         hitProjectileIds.add(projectile.id);
         ProjectileInstanceOps.remove(container, projectile.id);
-        EnemyInstanceOps.setHitFlash(container, enemy.id, 0.18);
+        resolveContainer.addIntent({
+          type: "apply-damage",
+          sourceId: projectile.id,
+          targetKind: "enemy",
+          targetId: enemy.id,
+          amount: projectile.damage,
+        });
         resolveContainer.addEvent({
           type: "projectile-hit-enemy",
           projectileId: projectile.id,
@@ -230,6 +267,116 @@ export class ProjectileHitSystem implements BattleSystem {
   }
 }
 
+export class EnemyContactDamageSystem implements BattleSystem {
+  resolve(container: InstanceContainer, resolveContainer: ResolveContainer, deltaSeconds: number): void {
+    const players = PlayerInstanceOps.list(container);
+
+    for (const enemy of EnemyInstanceOps.list(container)) {
+      const elapsedSeconds = enemy.contactDamageElapsedSeconds + deltaSeconds;
+      let nextElapsedSeconds = elapsedSeconds;
+
+      for (const player of players) {
+        if (!areCirclesOverlapping(enemy.position, enemy.radius, player.position, player.radius)) {
+          continue;
+        }
+
+        if (elapsedSeconds < enemy.contactDamageCooldownSeconds) {
+          continue;
+        }
+
+        nextElapsedSeconds = 0;
+        resolveContainer.addIntent({
+          type: "apply-damage",
+          sourceId: enemy.id,
+          targetKind: "player",
+          targetId: player.id,
+          amount: enemy.contactDamage,
+        });
+        break;
+      }
+
+      EnemyInstanceOps.setContactDamageElapsed(container, enemy.id, nextElapsedSeconds);
+    }
+  }
+}
+
+export class DamageSystem implements BattleSystem {
+  resolve(container: InstanceContainer, resolveContainer: ResolveContainer): void {
+    for (const intent of resolveContainer.consumeIntents("apply-damage")) {
+      if (intent.amount <= 0) {
+        continue;
+      }
+
+      if (intent.targetKind === "enemy") {
+        this.applyEnemyDamage(container, resolveContainer, intent.targetId, intent.sourceId, intent.amount);
+      } else {
+        this.applyPlayerDamage(container, resolveContainer, intent.targetId, intent.sourceId, intent.amount);
+      }
+    }
+  }
+
+  private applyEnemyDamage(
+    container: InstanceContainer,
+    resolveContainer: ResolveContainer,
+    enemyId: string,
+    sourceId: string,
+    amount: number,
+  ): void {
+    const enemy = EnemyInstanceOps.get(container, enemyId);
+
+    if (!enemy) {
+      return;
+    }
+
+    const healthRemaining = Math.max(0, enemy.health.current - amount);
+    EnemyInstanceOps.setHealth(container, enemy.id, healthRemaining);
+    EnemyInstanceOps.setHitFlash(container, enemy.id, 0.18);
+    resolveContainer.addEvent({
+      type: "enemy-damaged",
+      enemyId: enemy.id,
+      sourceId,
+      damage: amount,
+      healthRemaining,
+    });
+
+    if (healthRemaining > 0) {
+      return;
+    }
+
+    EnemyInstanceOps.remove(container, enemy.id);
+    resolveContainer.addEvent({
+      type: "enemy-died",
+      enemyId: enemy.id,
+      sourceId,
+    });
+  }
+
+  private applyPlayerDamage(
+    container: InstanceContainer,
+    resolveContainer: ResolveContainer,
+    playerId: string,
+    sourceId: string,
+    amount: number,
+  ): void {
+    const player = PlayerInstanceOps.get(container, playerId);
+
+    if (!player) {
+      return;
+    }
+
+    const healthRemaining = Math.max(0, player.health.current - amount);
+    PlayerInstanceOps.setHealth(container, player.id, healthRemaining);
+    PlayerInstanceOps.setHitFlash(container, player.id, 0.16);
+    resolveContainer.addEvent({
+      type: "player-damaged",
+      playerId: player.id,
+      sourceId,
+      damage: amount,
+      healthRemaining,
+    });
+  }
+}
+
 export class EnemyHitFlashSystem implements BattleSystem {
   resolve(container: InstanceContainer, _resolveContainer: ResolveContainer, deltaSeconds: number): void {
     for (const enemy of EnemyInstanceOps.list(container)) {
@@ -238,6 +385,18 @@ export class EnemyHitFlashSystem implements BattleSystem {
       }
 
       EnemyInstanceOps.setHitFlash(container, enemy.id, Math.max(0, enemy.hitFlashSeconds - deltaSeconds));
+    }
+  }
+}
+
+export class PlayerHitFlashSystem implements BattleSystem {
+  resolve(container: InstanceContainer, _resolveContainer: ResolveContainer, deltaSeconds: number): void {
+    for (const player of PlayerInstanceOps.list(container)) {
+      if (player.hitFlashSeconds <= 0) {
+        continue;
+      }
+
+      PlayerInstanceOps.setHitFlash(container, player.id, Math.max(0, player.hitFlashSeconds - deltaSeconds));
     }
   }
 }
@@ -297,16 +456,20 @@ function randomSpawnPosition(container: InstanceContainer, bounds: RectangleData
   };
 }
 
-function findNearestEnemy(position: Vector2Data, enemies: { id: string; position: Vector2Data }[]) {
+function findNearestEnemyInRange(
+  position: Vector2Data,
+  enemies: { id: string; position: Vector2Data }[],
+  range: number,
+) {
   let nearest: { id: string; position: Vector2Data } | undefined;
-  let nearestDistanceSquared = Number.POSITIVE_INFINITY;
+  let nearestDistanceSquared = range * range;
 
   for (const enemy of enemies) {
     const dx = enemy.position.x - position.x;
     const dy = enemy.position.y - position.y;
     const distanceSquared = dx * dx + dy * dy;
 
-    if (distanceSquared < nearestDistanceSquared) {
+    if (distanceSquared <= nearestDistanceSquared) {
       nearest = enemy;
       nearestDistanceSquared = distanceSquared;
     }

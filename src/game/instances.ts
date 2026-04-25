@@ -1,10 +1,12 @@
-import type { RandomStateData, RectangleData, Vector2Data } from "./data";
+import type { HealthData, RandomStateData, RectangleData, Vector2Data } from "./data";
 
 export interface PlayerInstance {
   id: string;
   position: Vector2Data;
   radius: number;
   moveSpeed: number;
+  health: HealthData;
+  hitFlashSeconds: number;
 }
 
 export interface CameraInstance {
@@ -21,8 +23,10 @@ export interface WeaponInstance {
   facingRadians: number;
   fireIntervalSeconds: number;
   cooldownSeconds: number;
+  attackRange: number;
   projectileSpeed: number;
   projectileRadius: number;
+  projectileDamage: number;
 }
 
 export interface ProjectileInstance {
@@ -31,12 +35,18 @@ export interface ProjectileInstance {
   position: Vector2Data;
   velocity: Vector2Data;
   radius: number;
+  damage: number;
 }
 
 export interface EnemyInstance {
   id: string;
   position: Vector2Data;
   radius: number;
+  health: HealthData;
+  moveSpeed: number;
+  contactDamage: number;
+  contactDamageCooldownSeconds: number;
+  contactDamageElapsedSeconds: number;
   hitFlashSeconds: number;
 }
 
@@ -78,6 +88,8 @@ export function createBattleInstanceContainer(): InstanceContainer {
           position: { x: 800, y: 600 },
           radius: 24,
           moveSpeed: 310,
+          health: { current: 10, max: 10 },
+          hitFlashSeconds: 0,
         },
       ],
     ]),
@@ -102,8 +114,10 @@ export function createBattleInstanceContainer(): InstanceContainer {
           facingRadians: 0,
           fireIntervalSeconds: 0.55,
           cooldownSeconds: 0.15,
+          attackRange: 430,
           projectileSpeed: 640,
           projectileRadius: 7,
+          projectileDamage: 1,
         },
       ],
       [
@@ -116,8 +130,10 @@ export function createBattleInstanceContainer(): InstanceContainer {
           facingRadians: 0,
           fireIntervalSeconds: 0.85,
           cooldownSeconds: 0.4,
+          attackRange: 520,
           projectileSpeed: 520,
           projectileRadius: 9,
+          projectileDamage: 1,
         },
       ],
     ]),

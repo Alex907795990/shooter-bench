@@ -4,9 +4,13 @@ import type { InstanceContainer } from "./instances";
 import { ResolveContainer } from "./resolve-container";
 import {
   CameraFollowSystem,
+  DamageSystem,
+  EnemyChaseSystem,
+  EnemyContactDamageSystem,
   EnemyHitFlashSystem,
   EnemySpawnSystem,
   PlayerMovementSystem,
+  PlayerHitFlashSystem,
   ProjectileHitSystem,
   ProjectileMovementSystem,
   WeaponAimSystem,
@@ -25,11 +29,15 @@ export class BattleResolver {
     new PlayerMovementSystem(),
     new WeaponFollowSystem(),
     new EnemySpawnSystem(),
+    new EnemyChaseSystem(),
     new WeaponAimSystem(),
     new WeaponFireSystem(),
     new ProjectileMovementSystem(),
     new ProjectileHitSystem(),
+    new EnemyContactDamageSystem(),
+    new DamageSystem(),
     new EnemyHitFlashSystem(),
+    new PlayerHitFlashSystem(),
     new CameraFollowSystem(),
   ];
 

@@ -28,6 +28,16 @@ export class PlayerViewOps {
     view.object.setPosition(x, y);
   }
 
+  static setHitFlash(container: PhaserViewContainer, id: string, isFlashing: boolean): void {
+    const view = container.playerViews.get(id);
+
+    if (!view) {
+      return;
+    }
+
+    view.object.setFillStyle(isFlashing ? 0xffffff : 0x9ad66f);
+    view.object.setStrokeStyle(4, isFlashing ? 0xff5f5f : 0xeaffc8);
+  }
 }
 
 export class CameraAnchorViewOps {
@@ -99,6 +109,10 @@ export class ProjectileViewOps {
     return container.projectileViews.get(id);
   }
 
+  static listIds(container: PhaserViewContainer): string[] {
+    return [...container.projectileViews.keys()];
+  }
+
   static setPosition(container: PhaserViewContainer, id: string, x: number, y: number): void {
     const view = container.projectileViews.get(id);
 
@@ -130,6 +144,10 @@ export class EnemyViewOps {
     return container.enemyViews.get(id);
   }
 
+  static listIds(container: PhaserViewContainer): string[] {
+    return [...container.enemyViews.keys()];
+  }
+
   static setPosition(container: PhaserViewContainer, id: string, x: number, y: number): void {
     const view = container.enemyViews.get(id);
 
@@ -149,6 +167,17 @@ export class EnemyViewOps {
 
     view.object.setFillStyle(isFlashing ? 0xffffff : 0xd65b5b);
     view.object.setStrokeStyle(3, isFlashing ? 0xffe36a : 0x4a1616);
+  }
+
+  static remove(container: PhaserViewContainer, id: string): void {
+    const view = container.enemyViews.get(id);
+
+    if (!view) {
+      return;
+    }
+
+    view.object.destroy();
+    container.enemyViews.delete(id);
   }
 }
 

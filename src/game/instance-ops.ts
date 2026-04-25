@@ -10,6 +10,10 @@ import type {
 } from "./instances";
 
 export class PlayerInstanceOps {
+  static list(container: InstanceContainer): PlayerInstance[] {
+    return [...container.players.values()];
+  }
+
   static get(container: InstanceContainer, playerId: string): PlayerInstance | undefined {
     return container.players.get(playerId);
   }
@@ -23,9 +27,36 @@ export class PlayerInstanceOps {
 
     player.position = position;
   }
+
+  static setHealth(container: InstanceContainer, playerId: string, current: number): void {
+    const player = container.players.get(playerId);
+
+    if (!player) {
+      return;
+    }
+
+    player.health = {
+      ...player.health,
+      current: Math.max(0, Math.min(current, player.health.max)),
+    };
+  }
+
+  static setHitFlash(container: InstanceContainer, playerId: string, hitFlashSeconds: number): void {
+    const player = container.players.get(playerId);
+
+    if (!player) {
+      return;
+    }
+
+    player.hitFlashSeconds = hitFlashSeconds;
+  }
 }
 
 export class CameraInstanceOps {
+  static list(container: InstanceContainer): CameraInstance[] {
+    return [...container.cameras.values()];
+  }
+
   static get(container: InstanceContainer, cameraId: string): CameraInstance | undefined {
     return container.cameras.get(cameraId);
   }
@@ -118,8 +149,39 @@ export class EnemyInstanceOps {
     return [...container.enemies.values()];
   }
 
+  static get(container: InstanceContainer, enemyId: string): EnemyInstance | undefined {
+    return container.enemies.get(enemyId);
+  }
+
   static add(container: InstanceContainer, enemy: EnemyInstance): void {
     container.enemies.set(enemy.id, enemy);
+  }
+
+  static remove(container: InstanceContainer, enemyId: string): void {
+    container.enemies.delete(enemyId);
+  }
+
+  static setPosition(container: InstanceContainer, enemyId: string, position: Vector2Data): void {
+    const enemy = container.enemies.get(enemyId);
+
+    if (!enemy) {
+      return;
+    }
+
+    enemy.position = position;
+  }
+
+  static setHealth(container: InstanceContainer, enemyId: string, current: number): void {
+    const enemy = container.enemies.get(enemyId);
+
+    if (!enemy) {
+      return;
+    }
+
+    enemy.health = {
+      ...enemy.health,
+      current: Math.max(0, Math.min(current, enemy.health.max)),
+    };
   }
 
   static nextId(container: InstanceContainer): string {
@@ -136,6 +198,16 @@ export class EnemyInstanceOps {
     }
 
     enemy.hitFlashSeconds = hitFlashSeconds;
+  }
+
+  static setContactDamageElapsed(container: InstanceContainer, enemyId: string, elapsedSeconds: number): void {
+    const enemy = container.enemies.get(enemyId);
+
+    if (!enemy) {
+      return;
+    }
+
+    enemy.contactDamageElapsedSeconds = elapsedSeconds;
   }
 }
 

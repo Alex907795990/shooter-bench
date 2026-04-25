@@ -34,9 +34,34 @@ export interface ProjectileHitEnemyEvent {
   position: Vector2Data;
 }
 
+export interface EnemyDamagedEvent {
+  type: "enemy-damaged";
+  enemyId: string;
+  sourceId: string;
+  damage: number;
+  healthRemaining: number;
+}
+
+export interface EnemyDiedEvent {
+  type: "enemy-died";
+  enemyId: string;
+  sourceId: string;
+}
+
+export interface PlayerDamagedEvent {
+  type: "player-damaged";
+  playerId: string;
+  sourceId: string;
+  damage: number;
+  healthRemaining: number;
+}
+
 export type BattleEvent =
   | PlayerMovedEvent
   | CameraMovedEvent
   | WeaponFiredEvent
   | EnemySpawnedEvent
-  | ProjectileHitEnemyEvent;
+  | ProjectileHitEnemyEvent
+  | EnemyDamagedEvent
+  | EnemyDiedEvent
+  | PlayerDamagedEvent;

@@ -96,6 +96,7 @@ export class BattleViewSyncSystem {
 
     if (player) {
       PlayerViewOps.setPosition(phaserViews, player.id, player.position.x, player.position.y);
+      PlayerViewOps.setHitFlash(phaserViews, player.id, player.hitFlashSeconds > 0);
     }
 
     if (cameraState) {
@@ -130,7 +131,11 @@ export class BattleViewSyncSystem {
     instanceContainer: InstanceContainer,
     phaserViews: PhaserViewContainer,
   ): void {
+    const activeEnemyIds = new Set<string>();
+
     for (const enemy of EnemyInstanceOps.list(instanceContainer)) {
+      activeEnemyIds.add(enemy.id);
+
       if (!EnemyViewOps.get(phaserViews, enemy.id)) {
         EnemyViewOps.add(
           phaserViews,
@@ -140,6 +145,12 @@ export class BattleViewSyncSystem {
 
       EnemyViewOps.setPosition(phaserViews, enemy.id, enemy.position.x, enemy.position.y);
       EnemyViewOps.setHitFlash(phaserViews, enemy.id, enemy.hitFlashSeconds > 0);
+    }
+
+    for (const enemyViewId of EnemyViewOps.listIds(phaserViews)) {
+      if (!activeEnemyIds.has(enemyViewId)) {
+        EnemyViewOps.remove(phaserViews, enemyViewId);
+      }
     }
   }
 
@@ -169,7 +180,7 @@ export class BattleViewSyncSystem {
       ProjectileViewOps.setPosition(phaserViews, projectile.id, projectile.position.x, projectile.position.y);
     }
 
-    for (const projectileViewId of [...phaserViews.projectileViews.keys()]) {
+    for (const projectileViewId of ProjectileViewOps.listIds(phaserViews)) {
       if (!activeProjectileIds.has(projectileViewId)) {
         ProjectileViewOps.remove(phaserViews, projectileViewId);
       }

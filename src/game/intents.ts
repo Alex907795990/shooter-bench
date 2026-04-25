@@ -6,4 +6,12 @@ export interface MovePlayerIntent {
   input: MovementInputData;
 }
 
-export type BattleIntent = MovePlayerIntent;
+export interface ApplyDamageIntent {
+  type: "apply-damage";
+  sourceId: string;
+  targetKind: "player" | "enemy";
+  targetId: string;
+  amount: number;
+}
+
+export type BattleIntent = MovePlayerIntent | ApplyDamageIntent;
