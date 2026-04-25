@@ -1,8 +1,10 @@
 import type * as Phaser from "phaser";
 import { PLAYER_ID } from "../game/data";
 import {
+  BattleRoundInstanceOps,
   CameraInstanceOps,
   EnemyInstanceOps,
+  EnemySpawnMarkerInstanceOps,
   PlayerInstanceOps,
   ProjectileInstanceOps,
   WeaponInstanceOps,
@@ -11,14 +13,18 @@ import {
 import type { InstanceContainer } from "../game/instances";
 import type { PhaserViewContainer } from "./phaser-view-instances";
 import {
+  BattleHudViewOps,
   CameraAnchorViewOps,
   EnemyViewOps,
+  EnemySpawnMarkerViewOps,
   PlayerViewOps,
   ProjectileViewOps,
   WeaponViewOps,
   WorldViewOps,
+  createBattleHudViewInstance,
   createCameraAnchorViewInstance,
   createEnemyViewInstance,
+  createEnemySpawnMarkerViewInstance,
   createPlayerViewInstance,
   createProjectileViewInstance,
   createWeaponViewInstance,
@@ -30,6 +36,7 @@ export class BattleViewInitializeSystem {
     this.createWorldView(scene, instanceContainer, phaserViews);
     this.createPlayerView(scene, instanceContainer, phaserViews);
     this.createCameraView(scene, instanceContainer, phaserViews);
+    BattleHudViewOps.add(phaserViews, createBattleHudViewInstance(scene, "battle-hud"));
   }
 
   private createWorldView(
@@ -104,8 +111,22 @@ export class BattleViewSyncSystem {
     }
 
     this.syncWeaponViews(scene, instanceContainer, phaserViews);
+    this.syncBattleHud(instanceContainer, phaserViews);
+    this.syncEnemySpawnMarkerViews(scene, instanceContainer, phaserViews);
     this.syncEnemyViews(scene, instanceContainer, phaserViews);
     this.syncProjectileViews(scene, instanceContainer, phaserViews);
+  }
+
+  private syncBattleHud(instanceContainer: InstanceContainer, phaserViews: PhaserViewContainer): void {
+    const battleRound = BattleRoundInstanceOps.get(instanceContainer);
+    const secondsRemaining = Math.ceil(battleRound.remainingSeconds);
+
+    BattleHudViewOps.setText(
+      phaserViews,
+      "battle-hud",
+      `Round ${battleRound.roundNumber}/${battleRound.totalRounds}`,
+      battleRound.status === "running" ? `${secondsRemaining}s` : "Round clear",
+    );
   }
 
   private syncWeaponViews(
@@ -150,6 +171,38 @@ export class BattleViewSyncSystem {
     for (const enemyViewId of EnemyViewOps.listIds(phaserViews)) {
       if (!activeEnemyIds.has(enemyViewId)) {
         EnemyViewOps.remove(phaserViews, enemyViewId);
+      }
+    }
+  }
+
+  private syncEnemySpawnMarkerViews(
+    scene: Phaser.Scene,
+    instanceContainer: InstanceContainer,
+    phaserViews: PhaserViewContainer,
+  ): void {
+    const activeMarkerIds = new Set<string>();
+
+    for (const marker of EnemySpawnMarkerInstanceOps.list(instanceContainer)) {
+      activeMarkerIds.add(marker.id);
+
+      if (!EnemySpawnMarkerViewOps.get(phaserViews, marker.id)) {
+        EnemySpawnMarkerViewOps.add(
+          phaserViews,
+          createEnemySpawnMarkerViewInstance(scene, marker.id, marker.position.x, marker.position.y),
+        );
+      }
+
+      EnemySpawnMarkerViewOps.setPosition(phaserViews, marker.id, marker.position.x, marker.position.y);
+      EnemySpawnMarkerViewOps.setWarningRatio(
+        phaserViews,
+        marker.id,
+        Math.max(0, Math.min(1, marker.spawnDelayRemainingSeconds)),
+      );
+    }
+
+    for (const markerViewId of EnemySpawnMarkerViewOps.listIds(phaserViews)) {
+      if (!activeMarkerIds.has(markerViewId)) {
+        EnemySpawnMarkerViewOps.remove(phaserViews, markerViewId);
       }
     }
   }

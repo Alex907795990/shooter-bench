@@ -1,4 +1,13 @@
-import type { HealthData, RandomStateData, RectangleData, Vector2Data } from "./data";
+import { DEMO_BATTLE_ROUNDS } from "./battle-round-definitions";
+import type {
+  BattleRoundDefinitionData,
+  BattleRoundStatusData,
+  EnemyKindData,
+  HealthData,
+  RandomStateData,
+  RectangleData,
+  Vector2Data,
+} from "./data";
 
 export interface PlayerInstance {
   id: string;
@@ -40,6 +49,7 @@ export interface ProjectileInstance {
 
 export interface EnemyInstance {
   id: string;
+  kind: EnemyKindData;
   position: Vector2Data;
   radius: number;
   health: HealthData;
@@ -56,20 +66,52 @@ export interface EnemySpawnerInstance {
   elapsedSeconds: number;
 }
 
+export interface BattleRoundInstance {
+  roundNumber: number;
+  totalRounds: number;
+  status: BattleRoundStatusData;
+  elapsedSeconds: number;
+  completedElapsedSeconds: number;
+  durationSeconds: number;
+  remainingSeconds: number;
+}
+
+export interface WaveGroupProgressInstance {
+  groupId: string;
+  repeatsTriggered: number;
+  nextTriggerAtSeconds: number;
+}
+
+export interface EnemySpawnMarkerInstance {
+  id: string;
+  roundNumber: number;
+  enemyKind: EnemyKindData;
+  position: Vector2Data;
+  radius: number;
+  spawnDelayRemainingSeconds: number;
+}
+
 export interface InstanceContainer {
   worldBounds: RectangleData;
   randomState: RandomStateData;
+  battleRoundDefinitions: BattleRoundDefinitionData[];
+  battleRound: BattleRoundInstance;
+  waveGroupProgress: Map<string, WaveGroupProgressInstance>;
   players: Map<string, PlayerInstance>;
   cameras: Map<string, CameraInstance>;
   weapons: Map<string, WeaponInstance>;
   projectiles: Map<string, ProjectileInstance>;
   enemies: Map<string, EnemyInstance>;
   enemySpawners: Map<string, EnemySpawnerInstance>;
+  enemySpawnMarkers: Map<string, EnemySpawnMarkerInstance>;
   nextProjectileIndex: number;
   nextEnemyIndex: number;
+  nextEnemySpawnMarkerIndex: number;
 }
 
 export function createBattleInstanceContainer(): InstanceContainer {
+  const firstRound = DEMO_BATTLE_ROUNDS[0];
+
   return {
     worldBounds: {
       x: 0,
@@ -80,6 +122,17 @@ export function createBattleInstanceContainer(): InstanceContainer {
     randomState: {
       seed: 93827,
     },
+    battleRoundDefinitions: DEMO_BATTLE_ROUNDS,
+    battleRound: {
+      roundNumber: firstRound.roundNumber,
+      totalRounds: DEMO_BATTLE_ROUNDS.length,
+      status: "running",
+      elapsedSeconds: 0,
+      completedElapsedSeconds: 0,
+      durationSeconds: firstRound.durationSeconds,
+      remainingSeconds: firstRound.durationSeconds,
+    },
+    waveGroupProgress: new Map(),
     players: new Map([
       [
         "player",
@@ -139,17 +192,10 @@ export function createBattleInstanceContainer(): InstanceContainer {
     ]),
     projectiles: new Map(),
     enemies: new Map(),
-    enemySpawners: new Map([
-      [
-        "battle-enemy-spawner",
-        {
-          id: "battle-enemy-spawner",
-          spawnIntervalSeconds: 1.1,
-          elapsedSeconds: 0,
-        },
-      ],
-    ]),
+    enemySpawners: new Map(),
+    enemySpawnMarkers: new Map(),
     nextProjectileIndex: 1,
     nextEnemyIndex: 1,
+    nextEnemySpawnMarkerIndex: 1,
   };
 }

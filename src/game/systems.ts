@@ -1,12 +1,23 @@
-import { PLAYER_ID, type RectangleData, type Vector2Data } from "./data";
+import { ENEMY_PROTOTYPES } from "./battle-round-definitions";
 import {
+  PLAYER_ID,
+  type RectangleData,
+  type SpawnPositionRuleData,
+  type Vector2Data,
+  type WaveGroupData,
+  type WaveUnitData,
+} from "./data";
+import {
+  BattleRoundInstanceOps,
   CameraInstanceOps,
   EnemyInstanceOps,
+  EnemySpawnMarkerInstanceOps,
   EnemySpawnerInstanceOps,
   PlayerInstanceOps,
   ProjectileInstanceOps,
   RandomStateOps,
   WeaponInstanceOps,
+  WaveGroupProgressInstanceOps,
   WorldBoundsOps,
 } from "./instance-ops";
 import type { InstanceContainer } from "./instances";
@@ -91,6 +102,211 @@ export class WeaponFollowSystem implements BattleSystem {
   }
 }
 
+export class BattleRoundTimerSystem implements BattleSystem {
+  resolve(container: InstanceContainer, resolveContainer: ResolveContainer, deltaSeconds: number): void {
+    const battleRound = BattleRoundInstanceOps.get(container);
+
+    if (battleRound.status !== "running") {
+      return;
+    }
+
+    const elapsedSeconds = battleRound.elapsedSeconds + deltaSeconds;
+    BattleRoundInstanceOps.setElapsed(container, elapsedSeconds);
+
+    const updatedRound = BattleRoundInstanceOps.get(container);
+
+    if (updatedRound.remainingSeconds > 0) {
+      return;
+    }
+
+    BattleRoundInstanceOps.complete(container);
+    EnemySpawnMarkerInstanceOps.clear(container);
+    EnemyInstanceOps.clear(container);
+    ProjectileInstanceOps.clear(container);
+    resolveContainer.addEvent({
+      type: "battle-round-ended",
+      roundNumber: updatedRound.roundNumber,
+    });
+  }
+}
+
+export class BattleRoundTransitionSystem implements BattleSystem {
+  private readonly nextRoundDelaySeconds = 2;
+
+  resolve(container: InstanceContainer, _resolveContainer: ResolveContainer, deltaSeconds: number): void {
+    const battleRound = BattleRoundInstanceOps.get(container);
+
+    if (battleRound.status !== "completed" || battleRound.roundNumber >= battleRound.totalRounds) {
+      return;
+    }
+
+    if (_resolveContainer.readEvents("battle-round-ended").length > 0) {
+      return;
+    }
+
+    const completedElapsedSeconds = battleRound.completedElapsedSeconds + deltaSeconds;
+
+    if (completedElapsedSeconds < this.nextRoundDelaySeconds) {
+      BattleRoundInstanceOps.setCompletedElapsed(container, completedElapsedSeconds);
+      return;
+    }
+
+    WaveGroupProgressInstanceOps.clear(container);
+    EnemySpawnMarkerInstanceOps.clear(container);
+    BattleRoundInstanceOps.startNextRound(container);
+  }
+}
+
+export class WaveTelegraphSystem implements BattleSystem {
+  resolve(container: InstanceContainer, resolveContainer: ResolveContainer): void {
+    const battleRound = BattleRoundInstanceOps.get(container);
+
+    if (battleRound.status !== "running") {
+      return;
+    }
+
+    const definition = BattleRoundInstanceOps.getCurrentDefinition(container);
+
+    if (!definition) {
+      return;
+    }
+
+    for (const group of definition.waveGroups) {
+      this.resolveWaveGroup(container, resolveContainer, group, battleRound.elapsedSeconds, battleRound.roundNumber);
+    }
+  }
+
+  private resolveWaveGroup(
+    container: InstanceContainer,
+    resolveContainer: ResolveContainer,
+    group: WaveGroupData,
+    elapsedSeconds: number,
+    roundNumber: number,
+  ): void {
+    let progress = WaveGroupProgressInstanceOps.get(container, group.id) ?? {
+      groupId: group.id,
+      repeatsTriggered: 0,
+      nextTriggerAtSeconds: group.triggerAtSeconds,
+    };
+
+    while (progress.repeatsTriggered < group.repeatCount && elapsedSeconds >= progress.nextTriggerAtSeconds) {
+      this.createTelegraphs(container, resolveContainer, group, roundNumber);
+      progress = {
+        groupId: progress.groupId,
+        repeatsTriggered: progress.repeatsTriggered + 1,
+        nextTriggerAtSeconds: group.triggerAtSeconds + (progress.repeatsTriggered + 1) * group.repeatIntervalSeconds,
+      };
+    }
+
+    WaveGroupProgressInstanceOps.set(container, progress);
+  }
+
+  private createTelegraphs(
+    container: InstanceContainer,
+    resolveContainer: ResolveContainer,
+    group: WaveGroupData,
+    roundNumber: number,
+  ): void {
+    for (const unit of group.units) {
+      if (RandomStateOps.next(container) > unit.spawnChance) {
+        continue;
+      }
+
+      this.createTelegraphsForUnit(container, resolveContainer, group, unit, roundNumber);
+    }
+  }
+
+  private createTelegraphsForUnit(
+    container: InstanceContainer,
+    resolveContainer: ResolveContainer,
+    group: WaveGroupData,
+    unit: WaveUnitData,
+    roundNumber: number,
+  ): void {
+    const bounds = WorldBoundsOps.get(container);
+    const count = randomIntegerInclusive(container, unit.minCount, unit.maxCount);
+    const positions = randomSpawnPositions(container, bounds, group.positionRule, count);
+
+    for (let index = 0; index < count; index += 1) {
+      const prototype = ENEMY_PROTOTYPES[unit.enemyKind];
+      const marker = {
+        id: EnemySpawnMarkerInstanceOps.nextId(container),
+        roundNumber,
+        enemyKind: unit.enemyKind,
+        position: positions[index],
+        radius: prototype.radius + 8,
+        spawnDelayRemainingSeconds: group.spawnDelaySeconds + index * group.batchDelaySeconds,
+      };
+
+      EnemySpawnMarkerInstanceOps.add(container, marker);
+      resolveContainer.addEvent({
+        type: "enemy-spawn-telegraphed",
+        markerId: marker.id,
+        enemyKind: marker.enemyKind,
+        position: { ...marker.position },
+        delaySeconds: marker.spawnDelayRemainingSeconds,
+      });
+    }
+  }
+}
+
+export class EnemySpawnMarkerSystem implements BattleSystem {
+  resolve(container: InstanceContainer, resolveContainer: ResolveContainer, deltaSeconds: number): void {
+    const battleRound = BattleRoundInstanceOps.get(container);
+
+    if (battleRound.status !== "running") {
+      return;
+    }
+
+    for (const marker of EnemySpawnMarkerInstanceOps.list(container)) {
+      const remainingSeconds = marker.spawnDelayRemainingSeconds - deltaSeconds;
+
+      if (remainingSeconds > 0) {
+        EnemySpawnMarkerInstanceOps.setDelayRemaining(container, marker.id, remainingSeconds);
+        continue;
+      }
+
+      if (this.spawnEnemy(container, resolveContainer, marker)) {
+        EnemySpawnMarkerInstanceOps.remove(container, marker.id);
+      } else {
+        EnemySpawnMarkerInstanceOps.setDelayRemaining(container, marker.id, 0);
+      }
+    }
+  }
+
+  private spawnEnemy(
+    container: InstanceContainer,
+    resolveContainer: ResolveContainer,
+    marker: { id: string; enemyKind: keyof typeof ENEMY_PROTOTYPES; position: Vector2Data },
+  ): boolean {
+    if (EnemyInstanceOps.list(container).length >= 100) {
+      return false;
+    }
+
+    const prototype = ENEMY_PROTOTYPES[marker.enemyKind];
+    const enemy = {
+      id: EnemyInstanceOps.nextId(container),
+      kind: prototype.kind,
+      position: { ...marker.position },
+      radius: prototype.radius,
+      health: { current: prototype.healthMax, max: prototype.healthMax },
+      moveSpeed: prototype.moveSpeed,
+      contactDamage: prototype.contactDamage,
+      contactDamageCooldownSeconds: prototype.contactDamageCooldownSeconds,
+      contactDamageElapsedSeconds: prototype.contactDamageCooldownSeconds,
+      hitFlashSeconds: 0,
+    };
+
+    EnemyInstanceOps.add(container, enemy);
+    resolveContainer.addEvent({
+      type: "enemy-spawned",
+      enemyId: enemy.id,
+      position: { ...enemy.position },
+    });
+    return true;
+  }
+}
+
 export class EnemySpawnSystem implements BattleSystem {
   resolve(container: InstanceContainer, resolveContainer: ResolveContainer, deltaSeconds: number): void {
     const bounds = WorldBoundsOps.get(container);
@@ -103,6 +319,7 @@ export class EnemySpawnSystem implements BattleSystem {
 
         const enemy = {
           id: EnemyInstanceOps.nextId(container),
+          kind: "chaser" as const,
           position: randomSpawnPosition(container, bounds),
           radius: 18,
           health: { current: 3, max: 3 },
@@ -426,19 +643,59 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function randomSpawnPosition(container: InstanceContainer, bounds: RectangleData): Vector2Data {
+  return randomPositionByRule(container, bounds, { type: "edge", padding: 48 });
+}
+
+function randomSpawnPositions(
+  container: InstanceContainer,
+  bounds: RectangleData,
+  rule: SpawnPositionRuleData,
+  count: number,
+): Vector2Data[] {
+  if (rule.type !== "group") {
+    return Array.from({ length: count }, () => randomPositionByRule(container, bounds, rule));
+  }
+
+  const center = randomPositionByRule(container, bounds, rule.centerRule);
+
+  return Array.from({ length: count }, () => {
+    const radians = RandomStateOps.next(container) * Math.PI * 2;
+    const distance = RandomStateOps.next(container) * rule.radius;
+
+    return clampPointToBounds(
+      {
+        x: center.x + Math.cos(radians) * distance,
+        y: center.y + Math.sin(radians) * distance,
+      },
+      bounds,
+    );
+  });
+}
+
+function randomPositionByRule(
+  container: InstanceContainer,
+  bounds: RectangleData,
+  rule: Exclude<SpawnPositionRuleData, { type: "group" }>,
+): Vector2Data {
+  if (rule.type === "random") {
+    return {
+      x: bounds.x + rule.margin + RandomStateOps.next(container) * (bounds.width - rule.margin * 2),
+      y: bounds.y + rule.margin + RandomStateOps.next(container) * (bounds.height - rule.margin * 2),
+    };
+  }
+
   const side = Math.floor(RandomStateOps.next(container) * 4);
-  const padding = 48;
 
   if (side === 0) {
     return {
       x: bounds.x + RandomStateOps.next(container) * bounds.width,
-      y: bounds.y + padding,
+      y: bounds.y + rule.padding,
     };
   }
 
   if (side === 1) {
     return {
-      x: bounds.x + bounds.width - padding,
+      x: bounds.x + bounds.width - rule.padding,
       y: bounds.y + RandomStateOps.next(container) * bounds.height,
     };
   }
@@ -446,14 +703,25 @@ function randomSpawnPosition(container: InstanceContainer, bounds: RectangleData
   if (side === 2) {
     return {
       x: bounds.x + RandomStateOps.next(container) * bounds.width,
-      y: bounds.y + bounds.height - padding,
+      y: bounds.y + bounds.height - rule.padding,
     };
   }
 
   return {
-    x: bounds.x + padding,
+    x: bounds.x + rule.padding,
     y: bounds.y + RandomStateOps.next(container) * bounds.height,
   };
+}
+
+function clampPointToBounds(position: Vector2Data, bounds: RectangleData): Vector2Data {
+  return {
+    x: clamp(position.x, bounds.x, bounds.x + bounds.width),
+    y: clamp(position.y, bounds.y, bounds.y + bounds.height),
+  };
+}
+
+function randomIntegerInclusive(container: InstanceContainer, min: number, max: number): number {
+  return min + Math.floor(RandomStateOps.next(container) * (max - min + 1));
 }
 
 function findNearestEnemyInRange(

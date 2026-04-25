@@ -27,6 +27,19 @@ export interface EnemySpawnedEvent {
   position: Vector2Data;
 }
 
+export interface EnemySpawnTelegraphedEvent {
+  type: "enemy-spawn-telegraphed";
+  markerId: string;
+  enemyKind: string;
+  position: Vector2Data;
+  delaySeconds: number;
+}
+
+export interface BattleRoundEndedEvent {
+  type: "battle-round-ended";
+  roundNumber: number;
+}
+
 export interface ProjectileHitEnemyEvent {
   type: "projectile-hit-enemy";
   projectileId: string;
@@ -61,6 +74,8 @@ export type BattleEvent =
   | CameraMovedEvent
   | WeaponFiredEvent
   | EnemySpawnedEvent
+  | EnemySpawnTelegraphedEvent
+  | BattleRoundEndedEvent
   | ProjectileHitEnemyEvent
   | EnemyDamagedEvent
   | EnemyDiedEvent

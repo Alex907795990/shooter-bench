@@ -1,12 +1,15 @@
-import type { RectangleData, Vector2Data } from "./data";
+import type { BattleRoundDefinitionData, RectangleData, Vector2Data } from "./data";
 import type {
+  BattleRoundInstance,
   CameraInstance,
   EnemyInstance,
+  EnemySpawnMarkerInstance,
   EnemySpawnerInstance,
   InstanceContainer,
   PlayerInstance,
   ProjectileInstance,
   WeaponInstance,
+  WaveGroupProgressInstance,
 } from "./instances";
 
 export class PlayerInstanceOps {
@@ -78,6 +81,81 @@ export class WorldBoundsOps {
   }
 }
 
+export class BattleRoundInstanceOps {
+  static get(container: InstanceContainer): BattleRoundInstance {
+    return container.battleRound;
+  }
+
+  static getCurrentDefinition(container: InstanceContainer): BattleRoundDefinitionData | undefined {
+    return container.battleRoundDefinitions.find(
+      (definition) => definition.roundNumber === container.battleRound.roundNumber,
+    );
+  }
+
+  static setElapsed(container: InstanceContainer, elapsedSeconds: number): void {
+    const battleRound = container.battleRound;
+    const clampedElapsedSeconds = Math.min(elapsedSeconds, battleRound.durationSeconds);
+
+    container.battleRound = {
+      ...battleRound,
+      elapsedSeconds: clampedElapsedSeconds,
+      remainingSeconds: Math.max(0, battleRound.durationSeconds - clampedElapsedSeconds),
+    };
+  }
+
+  static complete(container: InstanceContainer): void {
+    container.battleRound = {
+      ...container.battleRound,
+      status: "completed",
+      elapsedSeconds: container.battleRound.durationSeconds,
+      completedElapsedSeconds: 0,
+      remainingSeconds: 0,
+    };
+  }
+
+  static setCompletedElapsed(container: InstanceContainer, completedElapsedSeconds: number): void {
+    container.battleRound = {
+      ...container.battleRound,
+      completedElapsedSeconds,
+    };
+  }
+
+  static startNextRound(container: InstanceContainer): void {
+    const nextRoundNumber = container.battleRound.roundNumber + 1;
+    const definition = container.battleRoundDefinitions.find(
+      (roundDefinition) => roundDefinition.roundNumber === nextRoundNumber,
+    );
+
+    if (!definition) {
+      return;
+    }
+
+    container.battleRound = {
+      roundNumber: definition.roundNumber,
+      totalRounds: container.battleRound.totalRounds,
+      status: "running",
+      elapsedSeconds: 0,
+      completedElapsedSeconds: 0,
+      durationSeconds: definition.durationSeconds,
+      remainingSeconds: definition.durationSeconds,
+    };
+  }
+}
+
+export class WaveGroupProgressInstanceOps {
+  static get(container: InstanceContainer, groupId: string): WaveGroupProgressInstance | undefined {
+    return container.waveGroupProgress.get(groupId);
+  }
+
+  static set(container: InstanceContainer, progress: WaveGroupProgressInstance): void {
+    container.waveGroupProgress.set(progress.groupId, progress);
+  }
+
+  static clear(container: InstanceContainer): void {
+    container.waveGroupProgress.clear();
+  }
+}
+
 export class WeaponInstanceOps {
   static list(container: InstanceContainer): WeaponInstance[] {
     return [...container.weapons.values()];
@@ -137,6 +215,10 @@ export class ProjectileInstanceOps {
     container.projectiles.delete(projectileId);
   }
 
+  static clear(container: InstanceContainer): void {
+    container.projectiles.clear();
+  }
+
   static nextId(container: InstanceContainer): string {
     const id = `projectile-${container.nextProjectileIndex}`;
     container.nextProjectileIndex += 1;
@@ -159,6 +241,10 @@ export class EnemyInstanceOps {
 
   static remove(container: InstanceContainer, enemyId: string): void {
     container.enemies.delete(enemyId);
+  }
+
+  static clear(container: InstanceContainer): void {
+    container.enemies.clear();
   }
 
   static setPosition(container: InstanceContainer, enemyId: string, position: Vector2Data): void {
@@ -208,6 +294,40 @@ export class EnemyInstanceOps {
     }
 
     enemy.contactDamageElapsedSeconds = elapsedSeconds;
+  }
+}
+
+export class EnemySpawnMarkerInstanceOps {
+  static list(container: InstanceContainer): EnemySpawnMarkerInstance[] {
+    return [...container.enemySpawnMarkers.values()];
+  }
+
+  static add(container: InstanceContainer, marker: EnemySpawnMarkerInstance): void {
+    container.enemySpawnMarkers.set(marker.id, marker);
+  }
+
+  static remove(container: InstanceContainer, markerId: string): void {
+    container.enemySpawnMarkers.delete(markerId);
+  }
+
+  static clear(container: InstanceContainer): void {
+    container.enemySpawnMarkers.clear();
+  }
+
+  static setDelayRemaining(container: InstanceContainer, markerId: string, remainingSeconds: number): void {
+    const marker = container.enemySpawnMarkers.get(markerId);
+
+    if (!marker) {
+      return;
+    }
+
+    marker.spawnDelayRemainingSeconds = remainingSeconds;
+  }
+
+  static nextId(container: InstanceContainer): string {
+    const id = `enemy-spawn-marker-${container.nextEnemySpawnMarkerIndex}`;
+    container.nextEnemySpawnMarkerIndex += 1;
+    return id;
   }
 }
 

@@ -3,16 +3,19 @@ import { PLAYER_ID } from "./data";
 import type { InstanceContainer } from "./instances";
 import { ResolveContainer } from "./resolve-container";
 import {
+  BattleRoundTimerSystem,
+  BattleRoundTransitionSystem,
   CameraFollowSystem,
   DamageSystem,
   EnemyChaseSystem,
   EnemyContactDamageSystem,
   EnemyHitFlashSystem,
-  EnemySpawnSystem,
+  EnemySpawnMarkerSystem,
   PlayerMovementSystem,
   PlayerHitFlashSystem,
   ProjectileHitSystem,
   ProjectileMovementSystem,
+  WaveTelegraphSystem,
   WeaponAimSystem,
   WeaponFireSystem,
   WeaponFollowSystem,
@@ -26,9 +29,11 @@ export interface BattleFrameInput {
 export class BattleResolver {
   private readonly resolveContainer = new ResolveContainer();
   private readonly systems: BattleSystem[] = [
+    new BattleRoundTimerSystem(),
     new PlayerMovementSystem(),
     new WeaponFollowSystem(),
-    new EnemySpawnSystem(),
+    new EnemySpawnMarkerSystem(),
+    new WaveTelegraphSystem(),
     new EnemyChaseSystem(),
     new WeaponAimSystem(),
     new WeaponFireSystem(),
@@ -39,6 +44,7 @@ export class BattleResolver {
     new EnemyHitFlashSystem(),
     new PlayerHitFlashSystem(),
     new CameraFollowSystem(),
+    new BattleRoundTransitionSystem(),
   ];
 
   constructor(private readonly instanceContainer: InstanceContainer) {}

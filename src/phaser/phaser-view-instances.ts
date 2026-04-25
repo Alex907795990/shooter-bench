@@ -32,6 +32,17 @@ export interface EnemyViewInstance {
   object: Phaser.GameObjects.Arc;
 }
 
+export interface EnemySpawnMarkerViewInstance {
+  id: string;
+  object: Phaser.GameObjects.Text;
+}
+
+export interface BattleHudViewInstance {
+  id: string;
+  roundText: Phaser.GameObjects.Text;
+  timeText: Phaser.GameObjects.Text;
+}
+
 export interface PhaserViewContainer {
   playerViews: Map<string, PlayerViewInstance>;
   cameraAnchorViews: Map<string, CameraAnchorViewInstance>;
@@ -39,6 +50,8 @@ export interface PhaserViewContainer {
   weaponViews: Map<string, WeaponViewInstance>;
   projectileViews: Map<string, ProjectileViewInstance>;
   enemyViews: Map<string, EnemyViewInstance>;
+  enemySpawnMarkerViews: Map<string, EnemySpawnMarkerViewInstance>;
+  battleHudViews: Map<string, BattleHudViewInstance>;
 }
 
 export function createPhaserViewContainer(): PhaserViewContainer {
@@ -49,5 +62,7 @@ export function createPhaserViewContainer(): PhaserViewContainer {
     weaponViews: new Map(),
     projectileViews: new Map(),
     enemyViews: new Map(),
+    enemySpawnMarkerViews: new Map(),
+    battleHudViews: new Map(),
   };
 }

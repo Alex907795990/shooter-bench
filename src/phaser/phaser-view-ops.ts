@@ -1,7 +1,9 @@
 import type * as Phaser from "phaser";
 import type {
+  BattleHudViewInstance,
   CameraAnchorViewInstance,
   EnemyViewInstance,
+  EnemySpawnMarkerViewInstance,
   PhaserViewContainer,
   PlayerViewInstance,
   ProjectileViewInstance,
@@ -181,6 +183,74 @@ export class EnemyViewOps {
   }
 }
 
+export class EnemySpawnMarkerViewOps {
+  static add(container: PhaserViewContainer, view: EnemySpawnMarkerViewInstance): void {
+    container.enemySpawnMarkerViews.set(view.id, view);
+  }
+
+  static get(container: PhaserViewContainer, id: string): EnemySpawnMarkerViewInstance | undefined {
+    return container.enemySpawnMarkerViews.get(id);
+  }
+
+  static listIds(container: PhaserViewContainer): string[] {
+    return [...container.enemySpawnMarkerViews.keys()];
+  }
+
+  static setPosition(container: PhaserViewContainer, id: string, x: number, y: number): void {
+    const view = container.enemySpawnMarkerViews.get(id);
+
+    if (!view) {
+      return;
+    }
+
+    view.object.setPosition(x, y);
+  }
+
+  static setWarningRatio(container: PhaserViewContainer, id: string, warningRatio: number): void {
+    const view = container.enemySpawnMarkerViews.get(id);
+
+    if (!view) {
+      return;
+    }
+
+    const alpha = 0.35 + (1 - warningRatio) * 0.65;
+    view.object.setAlpha(alpha);
+    view.object.setScale(1 + (1 - warningRatio) * 0.25);
+  }
+
+  static remove(container: PhaserViewContainer, id: string): void {
+    const view = container.enemySpawnMarkerViews.get(id);
+
+    if (!view) {
+      return;
+    }
+
+    view.object.destroy();
+    container.enemySpawnMarkerViews.delete(id);
+  }
+}
+
+export class BattleHudViewOps {
+  static add(container: PhaserViewContainer, view: BattleHudViewInstance): void {
+    container.battleHudViews.set(view.id, view);
+  }
+
+  static get(container: PhaserViewContainer, id: string): BattleHudViewInstance | undefined {
+    return container.battleHudViews.get(id);
+  }
+
+  static setText(container: PhaserViewContainer, id: string, roundText: string, timeText: string): void {
+    const view = container.battleHudViews.get(id);
+
+    if (!view) {
+      return;
+    }
+
+    view.roundText.setText(roundText);
+    view.timeText.setText(timeText);
+  }
+}
+
 export function createPlayerViewInstance(
   scene: Phaser.Scene,
   id: string,
@@ -273,4 +343,46 @@ export function createEnemyViewInstance(
   object.setDepth(9);
 
   return { id, object };
+}
+
+export function createEnemySpawnMarkerViewInstance(
+  scene: Phaser.Scene,
+  id: string,
+  x: number,
+  y: number,
+): EnemySpawnMarkerViewInstance {
+  const object = scene.add.text(x, y, "X", {
+    fontFamily: "monospace",
+    fontSize: "34px",
+    fontStyle: "bold",
+    color: "#ff4040",
+    stroke: "#4a0000",
+    strokeThickness: 5,
+  });
+
+  object.setOrigin(0.5);
+  object.setDepth(8);
+
+  return { id, object };
+}
+
+export function createBattleHudViewInstance(scene: Phaser.Scene, id: string): BattleHudViewInstance {
+  const roundText = scene.add.text(18, 16, "", {
+    fontFamily: "monospace",
+    fontSize: "18px",
+    color: "#f7f1d0",
+  });
+  const timeText = scene.add.text(18, 40, "", {
+    fontFamily: "monospace",
+    fontSize: "26px",
+    fontStyle: "bold",
+    color: "#ffffff",
+  });
+
+  roundText.setScrollFactor(0);
+  timeText.setScrollFactor(0);
+  roundText.setDepth(100);
+  timeText.setDepth(100);
+
+  return { id, roundText, timeText };
 }
